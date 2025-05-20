@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "pgraf-cypher"
 version = "1.0.0a1"
-description = "Sibling projec to pgraf to convert the Cypher query language to SQL."
+description = "Sibling project to pgraf to convert the Cypher query language to SQL."
 readme = "README.md"
 requires-python = ">=3.12"
 license = 'BSD-3-clause'
