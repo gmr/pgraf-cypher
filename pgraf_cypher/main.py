@@ -2,13 +2,13 @@ import logging
 import typing
 
 import antlr4
-from psycopg import sql
 
 from pgraf_cypher import antlr, to_sql
 
 
 class PGrafCypher:
     """Add Cypher language support to pgraf"""
+
     def __init__(self, schema: str = 'pgraf'):
         self._schema = schema
 
@@ -53,5 +53,4 @@ if __name__ == '__main__':
     ORDER BY m1.ts DESC
     LIMIT 100        
     """
-    cypher = PGrafCypher()
-    print(cypher.translate(query1))
+    print(PGrafCypher.translate(query1))

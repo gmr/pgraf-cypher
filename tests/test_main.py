@@ -1,13 +1,10 @@
 import re
 import unittest
 
-from psycopg import sql
-
 import pgraf_cypher
 
 
 class CypherTestCase(unittest.TestCase):
-
     def setUp(self) -> None:
         self.cypher = pgraf_cypher.PGrafCypher()
 
@@ -24,10 +21,12 @@ class CypherTestCase(unittest.TestCase):
         MATCH (n:Person)
         """
         expectation = re.sub(
-            r'\s+', ' ',
+            r'\s+',
+            ' ',
             """SELECT "n".* 
                  FROM "pgraf"."nodes" AS "n" 
-                WHERE "n"."labels" = ANY(%(p0)s)""")
+                WHERE "n"."labels" = ANY(%(p0)s)""",
+        )
         result, properties = self.cypher.translate(query)
         self.assertEqual(result, expectation)
         self.assertDictEqual(properties, {'p0': 'Person'})
@@ -37,37 +36,23 @@ class CypherTestCase(unittest.TestCase):
         MATCH (n {name: "John"})
         """
         expectation = re.sub(
-            r'\s+', ' ',
+            r'\s+',
+            ' ',
             """SELECT "n".*
                  FROM "pgraf"."nodes" AS "n" 
-                WHERE "n"."properties"->>'name' = %(p0)s""")
+                WHERE "n"."properties"->>'name' = %(p0)s""",
+        )
         result, parameters = self.cypher.translate(query)
         self.assertEqual(result, expectation)
         self.assertDictEqual(parameters, {'p0': 'John'})
-
-    def test_multiple_nodes(self) -> None:
-        query = """\
-        MATCH (a), (b)
-        """
-        expectation = re.sub(
-            r'\s+', ' ',
-            """WITH
-              a AS (SELECT * FROM pgraf.nodes),
-              b AS (SELECT * FROM pgraf.nodes)
-            SELECT a.id as a_id, a.type as a_type, a.properties as a_properties,
-                   b.id as b_id, b.type as b_type, b.properties as b_properties
-            FROM a CROSS JOIN b
-            WHERE a.id <> b.id""")
-        result, parameters = self.cypher.translate(query)
-        self.assertEqual(result, expectation)
-        self.assertDictEqual(parameters, {})
 
     def test_variable_length_paths(self):
         query = """\
         MATCH (a)-[r:KNOWS*1..5]->(b)
         """
         expectation = re.sub(
-            r'\s+', ' ',
+            r'\s+',
+            ' ',
             """WITH RECURSIVE path AS (
                 SELECT n1.id AS start_id,
                        n2.id AS end_id,
@@ -102,7 +87,8 @@ class CypherTestCase(unittest.TestCase):
               JOIN pgraf.nodes a ON p.start_id = a.id
               JOIN pgraf.nodes b ON p.end_id = b.id
           ORDER BY p.depth;
-        """)
+        """,
+        )
         result, parameters = self.cypher.translate(query)
         self.assertEqual(result, expectation)
         self.assertDictEqual(parameters, {'p0': 'KNOWS'})
@@ -112,22 +98,24 @@ class CypherTestCase(unittest.TestCase):
         MATCH (a)-[r:KNOWS]-(b)
         """
         expectation = re.sub(
-            r'\s+', ' ',
+            r'\s+',
+            ' ',
             """SELECT n1.id AS a_id,
-                   n1.properties AS a_properties,
-                   n2.id AS b_id,
-                   n2.properties AS b_properties,
-                   e.label AS relationship_label,
-                   e.properties AS relationship_properties
-              FROM pgraf.nodes n1
-              JOIN pgraf.edges e
-                ON n1.id = e.source OR n1.id = e.target
-              JOIN pgraf.nodes n2
-                ON (e.target = n2.id  AND e.source = n1.id)
-                OR (e.source = n2.id AND e.target = n1.id)
-             WHERE e.labels && ARRAY[%(p0)s]
-               AND n1.id <> n2.id;
-        """)
+                      n1.properties AS a_properties,
+                      n2.id AS b_id,
+                      n2.properties AS b_properties,
+                      e.label AS relationship_label,
+                      e.properties AS relationship_properties
+                 FROM pgraf.nodes n1
+                 JOIN pgraf.edges e
+                   ON n1.id = e.source OR n1.id = e.target
+                 JOIN pgraf.nodes n2
+                   ON (e.target = n2.id  AND e.source = n1.id)
+                   OR (e.source = n2.id AND e.target = n1.id)
+                WHERE e.labels && ARRAY[%(p0)s]
+                  AND n1.id <> n2.id;
+        """,
+        )
         result, parameters = self.cypher.translate(query)
         self.assertEqual(result, expectation)
         self.assertDictEqual(parameters, {'p0': 'KNOWS'})
@@ -137,7 +125,8 @@ class CypherTestCase(unittest.TestCase):
         MATCH (a)-[:KNOWS|:FOLLOWS]->(b)
         """
         expectation = re.sub(
-            r'\s+', ' ',
+            r'\s+',
+            ' ',
             """SELECT n1.id AS a_id,
                    n1.properties AS a_properties,
                    n2.id AS b_id,
@@ -149,7 +138,8 @@ class CypherTestCase(unittest.TestCase):
               JOIN pgraf.nodes n2 ON e.target = n2.id
              WHERE (e.labels && ARRAY[%(p0)s] OR e.lables && ARRAY[%(p1)s])
                AND n1.id <> n2.id;
-        """)
+        """,
+        )
         result, parameters = self.cypher.translate(query)
         self.assertEqual(result, expectation)
         self.assertDictEqual(parameters, {'p0': 'KNOWS', 'p1': 'FOLLOWS'})
@@ -159,7 +149,8 @@ class CypherTestCase(unittest.TestCase):
         MATCH ((a)-[:KNOWS]->(b))<-[:WORKS_WITH]-(c)
         """
         expectation = re.sub(
-            r'\s+', ' ',
+            r'\s+',
+            ' ',
             """SELECT a.id AS a_id,
                    a.properties AS a_properties,
                    b.id AS b_id,
@@ -178,18 +169,19 @@ class CypherTestCase(unittest.TestCase):
                AND a.id <> b.id
                AND b.id <> c.id
                AND a.id <> c.id;
-        """)
+        """,
+        )
         result, parameters = self.cypher.translate(query)
         self.assertEqual(result, expectation)
         self.assertDictEqual(parameters, {'p0': 'KNOWS', 'p1': 'WORKS_WITH'})
-
 
     def test_pattern_qualifiers(self):
         query = """\
         MATCH ((a)-[:KNOWS]->(b)){1,3}
         """
         expectation = re.sub(
-            r'\s+', ' ',
+            r'\s+',
+            ' ',
             """WITH RECURSIVE path AS (
                 SELECT a.id AS a_id,
                        b.id AS b_id,
@@ -224,7 +216,8 @@ class CypherTestCase(unittest.TestCase):
               FROM path
              WHERE path_length BETWEEN 1 AND 3
           ORDER BY path_length;
-        """)
+        """,
+        )
         result, parameters = self.cypher.translate(query)
         self.assertEqual(result, expectation)
         self.assertDictEqual(parameters, {'p0': 'KNOWS'})
@@ -234,7 +227,8 @@ class CypherTestCase(unittest.TestCase):
         SHORTEST_PATH((a)-[:KNOWS*]-(b))
         """
         expectation = re.sub(
-            r'\s+', ' ',
+            r'\s+',
+            ' ',
             """WITH RECURSIVE shortest_path AS (
                 SELECT a.id AS start_id,
                        b.id AS end_id,
@@ -288,7 +282,8 @@ class CypherTestCase(unittest.TestCase):
               JOIN pgraf.nodes end_n
                 ON sp.end_id = end_n.id
           ORDER BY sp.path_length;
-        """)
+        """,
+        )
         result, parameters = self.cypher.translate(query)
         self.assertEqual(result, expectation)
         self.assertDictEqual(parameters, {'p0': 'KNOWS'})

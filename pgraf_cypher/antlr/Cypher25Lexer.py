@@ -1,7 +1,8 @@
 # Generated from Cypher25Lexer.g4 by ANTLR 4.13.2
-from antlr4 import *
 import sys
 import typing
+
+from antlr4 import *
 
 
 def serializedATN():
