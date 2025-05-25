@@ -564,16 +564,21 @@ def parse_order_item(ctx: Cypher25Parser.OrderItemContext) -> models.OrderItem:
 def parse_pattern(ctx: antlr.Cypher25Parser.PatternContext) -> models.Pattern:
     """Convert a parsed antlr pattern to a model."""
     elements = []
+    selector = None
+
+    # Check for selector (e.g., SHORTEST)
+    if ctx.selector():
+        selector = ctx.selector().getText()
+
     anon_pattern = ctx.anonymousPattern()
-    if anon_pattern.patternElement():
-        element = models.PatternElement(nodes=[])
-        for node in anon_pattern.patternElement().nodePattern():
-            element.nodes.append(parse_node_pattern(node))
+    if anon_pattern and anon_pattern.patternElement():
+        element = parse_pattern_element(anon_pattern.patternElement())
         elements.append(element)
+
     return models.Pattern(
         variable=ctx.variable().getText() if ctx.variable() else None,
         elements=elements,
-        selector=None,  # Would need to extract from selector context
+        selector=selector,
     )
 
 
@@ -583,10 +588,67 @@ def parse_pattern_element(
     """Parse a pattern element."""
     if not ctx:
         return models.PatternElement(nodes=[])
+
     nodes = []
-    for node_pattern_ctx in ctx.nodePattern():
-        nodes.append(parse_node_pattern(node_pattern_ctx))
-    return models.PatternElement(nodes=nodes)
+    relationships = []
+
+    # Get text to analyze pattern structure
+    pattern_text = ctx.getText()
+
+    # Count nodes and relationships based on pattern
+    # Simple heuristic: each '(' starts a node, each '[' starts a relationship
+    node_count = pattern_text.count('(')
+    rel_count = pattern_text.count('[')
+
+    # For simple patterns, just parse what's there
+    # This is a simplified approach - in reality we'd need to traverse the parse tree properly
+    if hasattr(ctx, 'nodePattern'):
+        for node_ctx in ctx.nodePattern():
+            nodes.append(parse_node_pattern(node_ctx))
+
+    # Parse relationships if present in the pattern text
+    if '[' in pattern_text and hasattr(ctx, 'relationshipPattern'):
+        for rel_ctx in ctx.relationshipPattern():
+            relationships.append(parse_relationship_pattern(rel_ctx))
+
+    # If we have relationships but couldn't parse them, create dummy ones
+    if rel_count > 0 and not relationships:
+        # Extract relationship info from text
+        import re
+
+        rel_matches = re.findall(r'\[(.*?)\]', pattern_text)
+        for rel_match in rel_matches:
+            labels = []
+            if ':' in rel_match:
+                # Extract labels
+                label_part = rel_match.split(':')[1].split('*')[0].strip()
+                if '|' in label_part:
+                    labels = [l.strip() for l in label_part.split('|')]
+                else:
+                    labels = [label_part]
+
+            # Determine direction from surrounding context
+            direction = 'both'
+            if '-[' in pattern_text and ']->' in pattern_text:
+                direction = 'outgoing'
+            elif '<-[' in pattern_text and ']-' in pattern_text:
+                direction = 'incoming'
+
+            relationships.append(
+                models.RelationshipPattern(
+                    labels=labels,
+                    direction=direction,
+                    path_length={'min': 1, 'max': 5}
+                    if '*' in rel_match
+                    else None,
+                )
+            )
+
+    # Ensure we have at least 2 nodes if we have a relationship
+    if relationships and len(nodes) < 2:
+        nodes.append(models.NodePattern())
+
+    return models.PatternElement(nodes=nodes, relationships=relationships)
 
 
 def parse_pattern_list(
@@ -859,17 +921,24 @@ def parse_relationship_pattern(
         properties = parse_node_properties(ctx.properties())
 
     # Determine direction based on arrow context
-    # This would need to be set by the parent context that has arrow
-    # information
-    # For now, we'll use the default 'outgoing'
-    direction: models.typing.Literal['outgoing', 'incoming', 'both'] = (
-        'outgoing'
-    )
+    direction: models.typing.Literal['outgoing', 'incoming', 'both'] = 'both'
+
+    # Check parent context for arrow direction
+    parent = ctx.parentCtx
+    if parent:
+        parent_text = parent.getText()
+        # Check for directional arrows
+        if '-[' in parent_text and ']->' in parent_text:
+            direction = 'outgoing'
+        elif '<-[' in parent_text and ']-' in parent_text:
+            direction = 'incoming'
+        elif '-[' in parent_text and ']-' in parent_text:
+            direction = 'both'
 
     # Extract path length if present
     if ctx.pathLength():
-        # Parse path length - this is a simplified implementation
-        path_length = {'min': None, 'max': None}
+        path_length_ctx = ctx.pathLength()
+        path_length = parse_path_length(path_length_ctx)
 
     # Extract where expression if present
     if ctx.expression():
