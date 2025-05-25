@@ -41,6 +41,6 @@ This project converts Neo4j's Cypher query language to PostgreSQL SQL. It uses A
 
 ### Database Schema Assumptions
 The SQL translation assumes a PostgreSQL schema with at least:
-- `nodes` table for graph vertices 
+- `nodes` table for graph vertices
 - `edges` table for relationships between nodes
 - A specific schema format with properties stored as JSON
