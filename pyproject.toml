@@ -34,6 +34,7 @@ dependencies = [
 dev = [
   "build>=1,<2",
   "mypy>=1.7,<2",
+  "pgraph>=1.0.0a0",
   "pre-commit>=4,<6",
   "pytest>=8,<9",
   "pytest-cov",

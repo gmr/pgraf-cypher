@@ -1,12 +1,20 @@
+import json
 import re
+import subprocess
 import unittest
+
+import pydantic
 
 import pgraf_cypher
 
 
-class CypherTestCase(unittest.TestCase):
+class CypherTestCase(unittest.IsolatedAsyncioTestCase):
+
     def setUp(self) -> None:
-        self.cypher = pgraf_cypher.PGrafCypher()
+        self.cypher = pgraf_cypher.PGrafCypher(url=postgres_url())
+
+    async def asyncSetUp(self) -> None:
+        await self.cypher.initialize()
 
     def test_nodes(self) -> None:
         query = """\
@@ -138,8 +146,6 @@ class CypherTestCase(unittest.TestCase):
                AND n1.id <> n2.id""",
         )
         result, parameters = self.cypher.translate(query)
-        print(expectation)
-        print(result)
         self.assertEqual(result, expectation)
         self.assertDictEqual(parameters, {'p0': 'KNOWS', 'p1': 'FOLLOWS'})
 
@@ -170,8 +176,6 @@ class CypherTestCase(unittest.TestCase):
                AND a.id <> c.id""",
         )
         result, parameters = self.cypher.translate(query)
-        print(expectation)
-        print(result)
         self.assertEqual(result, expectation)
         self.assertDictEqual(parameters, {'p0': 'KNOWS', 'p1': 'WORKS_WITH'})
 
@@ -218,8 +222,6 @@ class CypherTestCase(unittest.TestCase):
           ORDER BY path_length""",
         )
         result, parameters = self.cypher.translate(query)
-        print(expectation)
-        print(result)
         self.assertEqual(result, expectation)
         self.assertDictEqual(parameters, {'p0': 'KNOWS'})
 
@@ -285,7 +287,22 @@ class CypherTestCase(unittest.TestCase):
           ORDER BY sp.path_length""",
         )
         result, parameters = self.cypher.translate(query)
-        print(expectation)
-        print(result)
         self.assertEqual(result, expectation)
         self.assertDictEqual(parameters, {'p0': 'KNOWS'})
+
+
+def _docker_port() -> int:
+    result = subprocess.run(  # noqa: S603
+        ['docker', 'compose', 'ps', '--format', 'json', 'postgres'],  # noqa: S607
+        capture_output=True,
+    )
+    process = json.loads(result.stdout)
+    return process['Publishers'][0]['PublishedPort']
+
+
+
+def postgres_url() -> pydantic.PostgresDsn:
+    """Return connection parameters for database in either environment"""
+    return pydantic.PostgresDsn(
+        f'postgres://postgres:password@localhost:{_docker_port()}/postgres'
+    )
