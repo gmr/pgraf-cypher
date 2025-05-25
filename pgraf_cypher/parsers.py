@@ -551,7 +551,7 @@ def parse_order_by(
 
 def parse_order_item(ctx: Cypher25Parser.OrderItemContext) -> models.OrderItem:
     """Parse an individual order item."""
-    direction: models.typing.Literal['ASC', 'DESC'] | None = None
+    direction: models.typing.Literal[ASC, DESC] | None = None
     if ctx.ascToken():
         direction = 'ASC'
     elif ctx.descToken():
@@ -793,7 +793,7 @@ def parse_statement(
 def parse_union(ctx: Cypher25Parser.UnionContext) -> models.Union:
     """Parse a union query with single queries."""
     single_queries = []
-    union_type: models.typing.Literal['ALL', 'DISTINCT'] | None = None
+    union_type: models.typing.Literal[ALL, DISTINCT] | None = None
     for single_query_ctx in ctx.singleQuery():
         single_queries.append(parse_single_query(single_query_ctx))
     if len(ctx.children) > 1:
@@ -921,7 +921,7 @@ def parse_relationship_pattern(
         properties = parse_node_properties(ctx.properties())
 
     # Determine direction based on arrow context
-    direction: models.typing.Literal['outgoing', 'incoming', 'both'] = 'both'
+    direction: models.typing.Literal[outgoing, incoming, both] = 'both'
 
     # Check parent context for arrow direction
     parent = ctx.parentCtx
