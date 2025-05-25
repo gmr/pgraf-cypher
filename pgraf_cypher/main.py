@@ -1,4 +1,5 @@
 import logging
+import re
 import typing
 
 import antlr4
@@ -33,7 +34,8 @@ class PGrafCypher:
         walker = antlr4.ParseTreeWalker()
         converter = to_sql.CypherToSQL()
         walker.walk(converter, tree)
-        return converter.translate()
+        query, parameters = converter.translate()
+        return re.sub(r'\s+', ' ', query).strip(), parameters
 
 
 if __name__ == '__main__':
