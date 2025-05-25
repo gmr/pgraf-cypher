@@ -25,7 +25,8 @@ class CypherTestCase(unittest.TestCase):
             ' ',
             """SELECT "n".* 
                  FROM "pgraf"."nodes" AS "n" 
-                WHERE "n"."labels" = ANY(%(p0)s)""")
+                WHERE "n"."labels" = ANY(%(p0)s)""",
+        )
         result, properties = self.cypher.translate(query)
         self.assertEqual(result, expectation)
         self.assertDictEqual(properties, {'p0': 'Person'})
@@ -39,7 +40,8 @@ class CypherTestCase(unittest.TestCase):
             ' ',
             """SELECT "n".*
                  FROM "pgraf"."nodes" AS "n" 
-                WHERE "n"."properties"->>'name' = %(p0)s""")
+                WHERE "n"."properties"->>'name' = %(p0)s""",
+        )
         result, parameters = self.cypher.translate(query)
         self.assertEqual(result, expectation)
         self.assertDictEqual(parameters, {'p0': 'John'})
@@ -84,7 +86,8 @@ class CypherTestCase(unittest.TestCase):
               FROM path p
               JOIN pgraf.nodes a ON p.start_id = a.id
               JOIN pgraf.nodes b ON p.end_id = b.id
-          ORDER BY p.depth""")
+          ORDER BY p.depth""",
+        )
         result, parameters = self.cypher.translate(query)
         self.assertEqual(result, expectation)
         self.assertDictEqual(parameters, {'p0': 'KNOWS'})
@@ -109,7 +112,8 @@ class CypherTestCase(unittest.TestCase):
                    ON (e.target = n2.id  AND e.source = n1.id)
                    OR (e.source = n2.id AND e.target = n1.id)
                 WHERE e.labels && ARRAY[%(p0)s]
-                  AND n1.id <> n2.id""")
+                  AND n1.id <> n2.id""",
+        )
         result, parameters = self.cypher.translate(query)
         self.assertEqual(result, expectation)
         self.assertDictEqual(parameters, {'p0': 'KNOWS'})
@@ -131,7 +135,8 @@ class CypherTestCase(unittest.TestCase):
               JOIN "pgraf"."edges" e ON n1.id = e.source
               JOIN "pgraf"."nodes" n2 ON e.target = n2.id
              WHERE (e.labels && ARRAY[%(p0)s] OR e.lables && ARRAY[%(p1)s])
-               AND n1.id <> n2.id""")
+               AND n1.id <> n2.id""",
+        )
         result, parameters = self.cypher.translate(query)
         print(expectation)
         print(result)
@@ -162,7 +167,8 @@ class CypherTestCase(unittest.TestCase):
                AND e2.labels && ARRAY[%(p1)s]
                AND a.id <> b.id
                AND b.id <> c.id
-               AND a.id <> c.id""")
+               AND a.id <> c.id""",
+        )
         result, parameters = self.cypher.translate(query)
         print(expectation)
         print(result)
@@ -209,7 +215,8 @@ class CypherTestCase(unittest.TestCase):
                    path_length
               FROM path
              WHERE path_length BETWEEN 1 AND 3
-          ORDER BY path_length""")
+          ORDER BY path_length""",
+        )
         result, parameters = self.cypher.translate(query)
         print(expectation)
         print(result)
@@ -275,7 +282,8 @@ class CypherTestCase(unittest.TestCase):
                 ON sp.start_id = start_n.id
               JOIN pgraf.nodes end_n
                 ON sp.end_id = end_n.id
-          ORDER BY sp.path_length""")
+          ORDER BY sp.path_length""",
+        )
         result, parameters = self.cypher.translate(query)
         print(expectation)
         print(result)
