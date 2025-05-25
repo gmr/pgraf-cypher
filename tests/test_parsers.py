@@ -205,10 +205,13 @@ class TestPattern(unittest.TestCase):
         """Test parsing a simple pattern."""
         ctx = Mock(spec=Cypher25Parser.PatternContext)
         ctx.variable.return_value = None
+        ctx.selector.return_value = None  # Mock the selector method
         ctx.anonymousPattern.return_value = Mock()
         anon_pattern = ctx.anonymousPattern.return_value
         anon_pattern.patternElement.return_value = Mock()
         pattern_element = anon_pattern.patternElement.return_value
+        # Mock getText to return a string instead of Mock
+        pattern_element.getText.return_value = '(n)'
         pattern_element.nodePattern.return_value = [Mock()]
         node_ctx = pattern_element.nodePattern.return_value[0]
         node_ctx.variable.return_value = Mock()
