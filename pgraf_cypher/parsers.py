@@ -538,7 +538,9 @@ def parse_node_pattern(
     return node
 
 
-def parse_order_by(ctx: Cypher25Parser.OrderByContext | None) -> models.OrderBy:
+def parse_order_by(
+    ctx: Cypher25Parser.OrderByContext | None,
+) -> models.OrderBy:
     """Parse an ORDER BY clause."""
     if not ctx:
         return models.OrderBy(items=[])
@@ -549,7 +551,7 @@ def parse_order_by(ctx: Cypher25Parser.OrderByContext | None) -> models.OrderBy:
 
 def parse_order_item(ctx: Cypher25Parser.OrderItemContext) -> models.OrderItem:
     """Parse an individual order item."""
-    direction = None
+    direction: models.typing.Literal['ASC', 'DESC'] | None = None
     if ctx.ascToken():
         direction = 'ASC'
     elif ctx.descToken():
@@ -573,6 +575,18 @@ def parse_pattern(ctx: antlr.Cypher25Parser.PatternContext) -> models.Pattern:
         elements=elements,
         selector=None,  # Would need to extract from selector context
     )
+
+
+def parse_pattern_element(
+    ctx: Cypher25Parser.PatternElementContext | None,
+) -> models.PatternElement:
+    """Parse a pattern element."""
+    if not ctx:
+        return models.PatternElement(nodes=[])
+    nodes = []
+    for node_pattern_ctx in ctx.nodePattern():
+        nodes.append(parse_node_pattern(node_pattern_ctx))
+    return models.PatternElement(nodes=nodes)
 
 
 def parse_pattern_list(
@@ -699,7 +713,9 @@ def parse_skip(ctx: Cypher25Parser.SkipContext | None) -> models.Skip:
     return models.Skip(expression=parse_expression(ctx.expression()))
 
 
-def parse_statement(ctx: Cypher25Parser.StatementContext | None) -> models.Statement:
+def parse_statement(
+    ctx: Cypher25Parser.StatementContext | None,
+) -> models.Statement:
     """Parse a statement."""
     if not ctx:
         return models.Statement()
@@ -715,7 +731,7 @@ def parse_statement(ctx: Cypher25Parser.StatementContext | None) -> models.State
 def parse_union(ctx: Cypher25Parser.UnionContext) -> models.Union:
     """Parse a union query with single queries."""
     single_queries = []
-    union_type = None
+    union_type: models.typing.Literal['ALL', 'DISTINCT'] | None = None
     for single_query_ctx in ctx.singleQuery():
         single_queries.append(parse_single_query(single_query_ctx))
     if len(ctx.children) > 1:
@@ -744,7 +760,9 @@ def parse_unwind_clause(
     )
 
 
-def parse_use_clause(ctx: Cypher25Parser.UseClauseContext | None) -> models.UseClause:
+def parse_use_clause(
+    ctx: Cypher25Parser.UseClauseContext | None,
+) -> models.UseClause:
     """Parse a USE clause."""
     if not ctx or not ctx.graphReference():
         return models.UseClause()
@@ -779,12 +797,400 @@ def parse_where_clause(
     return models.WhereClause(expression=parse_expression(ctx.expression()))
 
 
-def parse_with_clause(ctx: Cypher25Parser.WithClauseContext | None) -> models.WithClause:
+def parse_variable(
+    ctx: Cypher25Parser.VariableContext | None,
+) -> models.VariableExpression:
+    """Parse a variable."""
+    if not ctx:
+        return models.VariableExpression(name='')
+    return models.VariableExpression(name=ctx.getText())
+
+
+def parse_symbolic_variable_name_string(
+    ctx: Cypher25Parser.SymbolicVariableNameStringContext | None,
+) -> str:
+    """Parse a symbolic variable name string."""
+    if not ctx:
+        return ''
+    return ctx.getText()
+
+
+def parse_unescaped_symbolic_variable_name_string(
+    ctx: Cypher25Parser.UnescapedSymbolicVariableNameStringContext | None,
+) -> str:
+    """Parse an unescaped symbolic variable name string."""
+    if not ctx:
+        return ''
+    return ctx.getText()
+
+
+def parse_unescaped_symbolic_name_string(
+    ctx: Cypher25Parser.UnescapedSymbolicNameStringContext | None,
+) -> str:
+    """Parse an unescaped symbolic name string."""
+    if not ctx:
+        return ''
+    return ctx.getText()
+
+
+def parse_relationship_pattern(
+    ctx: Cypher25Parser.RelationshipPatternContext | None,
+) -> models.RelationshipPattern:
+    """Parse a relationship pattern."""
+    if not ctx:
+        return models.RelationshipPattern()
+
+    variable = None
+    labels = []
+    properties = {}
+    path_length = None
+    where_expression = None
+
+    # Extract variable if present
+    if ctx.variable():
+        variable = ctx.variable().getText()
+
+    # Extract labels if present
+    if ctx.labelExpression():
+        labels = parse_label_expression(ctx.labelExpression())
+
+    # Extract properties if present
+    if ctx.properties():
+        properties = parse_node_properties(ctx.properties())
+
+    # Determine direction based on arrow context
+    # This would need to be set by the parent context that has arrow
+    # information
+    # For now, we'll use the default 'outgoing'
+    direction: models.typing.Literal['outgoing', 'incoming', 'both'] = (
+        'outgoing'
+    )
+
+    # Extract path length if present
+    if ctx.pathLength():
+        # Parse path length - this is a simplified implementation
+        path_length = {'min': None, 'max': None}
+
+    # Extract where expression if present
+    if ctx.expression():
+        where_expression = ctx.expression().getText()
+
+    return models.RelationshipPattern(
+        variable=variable,
+        labels=labels,
+        properties=properties,
+        direction=direction,
+        path_length=path_length,
+        where_expression=where_expression,
+    )
+
+
+def parse_arrow_line(ctx: Cypher25Parser.ArrowLineContext | None) -> str:
+    """Parse an arrow line and return its text representation."""
+    if not ctx:
+        return ''
+    return ctx.getText()
+
+
+def parse_label_name(ctx: Cypher25Parser.LabelNameContext | None) -> str:
+    """Parse a label name and return its text representation."""
+    if not ctx:
+        return ''
+    # Extract the symbolic name string from the label name context
+    if ctx.symbolicNameString():
+        return ctx.symbolicNameString().getText()
+    return ctx.getText()
+
+
+def parse_symbolic_name_string(
+    ctx: Cypher25Parser.SymbolicNameStringContext | None,
+) -> str:
+    """Parse a symbolic name string and return its text representation."""
+    if not ctx:
+        return ''
+    return ctx.getText()
+
+
+def parse_property_postfix(
+    ctx: Cypher25Parser.PropertyPostfixContext | None,
+) -> models.PropertyAccessExpression:
+    """Parse a property postfix and return a PropertyAccessExpression."""
+    if not ctx:
+        return models.PropertyAccessExpression(
+            object=models.Expression(type=models.ExpressionType.EMPTY),
+            property='',
+        )
+
+    # Extract property name from the context
+    property_name = ''
+    if ctx.property_():
+        if ctx.property_().propertyKeyName():
+            property_name = ctx.property_().propertyKeyName().getText()
+
+    return models.PropertyAccessExpression(
+        object=models.Expression(type=models.ExpressionType.UNKNOWN),
+        property=property_name,
+    )
+
+
+def parse_property(ctx: Cypher25Parser.PropertyContext | None) -> str:
+    """Parse a property and return its property key name."""
+    if not ctx:
+        return ''
+    if ctx.propertyKeyName():
+        return ctx.propertyKeyName().getText()
+    return ctx.getText()
+
+
+def parse_property_key_name(
+    ctx: Cypher25Parser.PropertyKeyNameContext | None,
+) -> str:
+    """Parse a property key name and return its text representation."""
+    if not ctx:
+        return ''
+    return ctx.getText()
+
+
+def parse_desc_token(ctx: Cypher25Parser.DescTokenContext | None) -> str:
+    """Parse a DESC token and return its text representation."""
+    if not ctx:
+        return ''
+    return ctx.getText()
+
+
+def parse_nummeric_literal(
+    ctx: Cypher25Parser.NummericLiteralContext | None,
+) -> models.LiteralValue:
+    """Parse a numeric literal and return a LiteralValue."""
+    if not ctx:
+        return models.LiteralValue(type='integer', value=0)
+
+    text = ctx.getText()
+    if '.' in text:
+        try:
+            return models.LiteralValue(type='float', value=float(text))
+        except ValueError:
+            return models.LiteralValue(type='string', value=text)
+    else:
+        try:
+            return models.LiteralValue(type='integer', value=int(text))
+        except ValueError:
+            return models.LiteralValue(type='string', value=text)
+
+
+def parse_number_literal(
+    ctx: Cypher25Parser.NumberLiteralContext | None,
+) -> models.LiteralValue:
+    """Parse a number literal and return a LiteralValue."""
+    if not ctx:
+        return models.LiteralValue(type='integer', value=0)
+
+    text = ctx.getText()
+    if '.' in text:
+        try:
+            return models.LiteralValue(type='float', value=float(text))
+        except ValueError:
+            return models.LiteralValue(type='string', value=text)
+    else:
+        try:
+            return models.LiteralValue(type='integer', value=int(text))
+        except ValueError:
+            return models.LiteralValue(type='string', value=text)
+
+
+def parse_return_item(
+    ctx: Cypher25Parser.ReturnItemContext | None,
+) -> models.ReturnItem:
+    """Parse a return item and return a ReturnItem model."""
+    if not ctx:
+        return models.ReturnItem(
+            expression=models.Expression(type=models.ExpressionType.EMPTY),
+            alias=None,
+        )
+
+    expression = models.Expression(type=models.ExpressionType.EMPTY)
+    alias = None
+
+    if ctx.expression():
+        expression = parse_expression(ctx.expression())
+
+    if ctx.variable():
+        alias = ctx.variable().getText()
+
+    return models.ReturnItem(expression=expression, alias=alias)
+
+
+def parse_strings_literal(
+    ctx: Cypher25Parser.StringsLiteralContext | None,
+) -> models.LiteralValue:
+    """Parse a strings literal and return a LiteralValue."""
+    if not ctx:
+        return models.LiteralValue(type='string', value='')
+
+    text = ctx.getText()
+    # Remove quotes if present
+    if text.startswith('"') and text.endswith('"'):
+        text = text[1:-1]
+    elif text.startswith("'") and text.endswith("'"):
+        text = text[1:-1]
+
+    return models.LiteralValue(type='string', value=text)
+
+
+def parse_string_literal(
+    ctx: Cypher25Parser.StringLiteralContext | None,
+) -> models.LiteralValue:
+    """Parse a string literal and return a LiteralValue."""
+    if not ctx:
+        return models.LiteralValue(type='string', value='')
+
+    text = ctx.getText()
+    # Remove quotes if present
+    if text.startswith('"') and text.endswith('"'):
+        text = text[1:-1]
+    elif text.startswith("'") and text.endswith("'"):
+        text = text[1:-1]
+
+    return models.LiteralValue(type='string', value=text)
+
+
+def parse_map(ctx: Cypher25Parser.MapContext | None) -> dict[str, object]:
+    """Parse a map and return a dictionary."""
+    if not ctx:
+        return {}
+
+    result = {}
+    # Parse property key names and expressions
+    if hasattr(ctx, 'propertyKeyName') and hasattr(ctx, 'expression'):
+        keys = ctx.propertyKeyName() if ctx.propertyKeyName() else []
+        expressions = ctx.expression() if ctx.expression() else []
+
+        for i, key_ctx in enumerate(keys):
+            if i < len(expressions):
+                key = key_ctx.getText()
+                # For simplicity, we'll store the expression text
+                # In a full implementation, you'd parse the expression
+                value = expressions[i].getText()
+                result[key] = value
+
+    return result
+
+
+def parse_properties(
+    ctx: Cypher25Parser.PropertiesContext | None,
+) -> dict[str, object]:
+    """Parse properties and return a dictionary."""
+    if not ctx:
+        return {}
+
+    # Reuse the existing parse_node_properties function
+    return parse_node_properties(ctx)
+
+
+def parse_right_arrow(ctx: Cypher25Parser.RightArrowContext | None) -> str:
+    """Parse a right arrow and return its text representation."""
+    if not ctx:
+        return ''
+    return ctx.getText()
+
+
+def parse_exists_expression(
+    ctx: Cypher25Parser.ExistsExpressionContext | None,
+) -> models.Expression:
+    """Parse an exists expression and return an Expression model."""
+    if not ctx:
+        return models.Expression(type=models.ExpressionType.EMPTY)
+
+    # For now, return a simple expression with the EXISTS type
+    # In a full implementation, you'd parse the inner expression
+    return models.Expression(type=models.ExpressionType.EXISTS)
+
+
+def parse_path_length(
+    ctx: Cypher25Parser.PathLengthContext | None,
+) -> dict[str, int | None]:
+    """Parse a path length and return a dictionary with min/max values."""
+    if not ctx:
+        return {'min': None, 'max': None}
+
+    # Parse the path length range like *1..5 or *2 or *..*
+    text = ctx.getText()
+
+    # Remove the leading * if present
+    if text.startswith('*'):
+        text = text[1:]
+
+    if '..' in text:
+        # Range like 1..5
+        parts = text.split('..')
+        try:
+            min_val = int(parts[0]) if parts[0] and parts[0] != '' else None
+            max_val = int(parts[1]) if parts[1] and parts[1] != '' else None
+            return {'min': min_val, 'max': max_val}
+        except ValueError:
+            return {'min': None, 'max': None}
+    elif text and text != '':
+        # Single value like 3
+        try:
+            val = int(text)
+            return {'min': val, 'max': val}
+        except ValueError:
+            return {'min': None, 'max': None}
+    else:
+        # Just * means any length
+        return {'min': None, 'max': None}
+
+
+def parse_quantifier(
+    ctx: Cypher25Parser.QuantifierContext | None,
+) -> dict[str, int | None]:
+    """Parse a quantifier and return a dictionary with from/to values."""
+    if not ctx:
+        return {'from': None, 'to': None}
+
+    # Parse quantifier like {1,5} or {2} or {,3}
+    text = ctx.getText()
+
+    # Remove braces if present
+    if text.startswith('{') and text.endswith('}'):
+        text = text[1:-1]
+
+    if ',' in text:
+        # Range like 1,5 or ,3 or 2,
+        parts = text.split(',')
+        try:
+            from_val = int(parts[0]) if parts[0] and parts[0] != '' else None
+            to_val = int(parts[1]) if parts[1] and parts[1] != '' else None
+            return {'from': from_val, 'to': to_val}
+        except ValueError:
+            return {'from': None, 'to': None}
+    elif text and text != '':
+        # Single value like 3
+        try:
+            val = int(text)
+            return {'from': val, 'to': val}
+        except ValueError:
+            return {'from': None, 'to': None}
+    else:
+        return {'from': None, 'to': None}
+
+
+def parse_parenthesized_path(
+    ctx: Cypher25Parser.ParenthesizedPathContext | None,
+) -> str:
+    """Parse a parenthesized path and return its text representation."""
+    if not ctx:
+        return ''
+    return ctx.getText()
+
+
+def parse_with_clause(
+    ctx: Cypher25Parser.WithClauseContext | None,
+) -> models.WithClause:
     """Parse a WITH clause."""
     if not ctx:
         return models.WithClause(
-            return_body=models.ReturnBody(),
-            where_expression=None,
+            return_body=models.ReturnBody(), where_expression=None
         )
     where_expression = None
     if ctx.whereClause():

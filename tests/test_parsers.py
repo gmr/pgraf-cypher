@@ -6,26 +6,26 @@ from unittest.mock import Mock
 from pgraf_cypher import models
 from pgraf_cypher.antlr import Cypher25Parser
 from pgraf_cypher.parsers import (
-    parse_expression,
-    parse_label_expression,
-    parse_node_properties,
-    parse_node_pattern,
-    parse_pattern,
-    parse_statement,
-    parse_regular_query,
-    parse_order_by,
-    parse_limit,
-    parse_skip,
-    parse_with_clause,
-    parse_merge_clause,
-    parse_filter_clause,
-    parse_set_clause,
-    parse_match_clause,
-    parse_return_clause,
-    parse_where_clause,
-    parse_unwind_clause,
     parse_call_clause,
+    parse_expression,
+    parse_filter_clause,
+    parse_label_expression,
+    parse_limit,
     parse_literal,
+    parse_match_clause,
+    parse_merge_clause,
+    parse_node_pattern,
+    parse_node_properties,
+    parse_order_by,
+    parse_pattern,
+    parse_regular_query,
+    parse_return_clause,
+    parse_set_clause,
+    parse_skip,
+    parse_statement,
+    parse_unwind_clause,
+    parse_where_clause,
+    parse_with_clause,
 )
 
 
@@ -284,7 +284,6 @@ class TestStatement(unittest.TestCase):
         self.assertIsNotNone(result.regular_query.when)
 
 
-
 class TestRegularQuery(unittest.TestCase):
     """Test cases for parse_regular_query function."""
 
@@ -348,8 +347,8 @@ class TestRegularQuery(unittest.TestCase):
         with unittest.mock.patch(
             'pgraf_cypher.parsers.parse_expression'
         ) as mock_expr_parser:
-            mock_expr_parser.return_value = (
-                models.VariableExpression(name='test')
+            mock_expr_parser.return_value = models.VariableExpression(
+                name='test'
             )
             result = parse_regular_query(ctx)
 
@@ -357,7 +356,6 @@ class TestRegularQuery(unittest.TestCase):
         self.assertIsNotNone(result.when)
         self.assertEqual(len(result.when.when_branches), 1)
         self.assertIsNone(result.when.else_branch)
-
 
 
 class TestOrderBy(unittest.TestCase):
@@ -381,9 +379,7 @@ class TestOrderBy(unittest.TestCase):
         with unittest.mock.patch(
             'pgraf_cypher.parsers.parse_expression'
         ) as mock_expr:
-            mock_expr.return_value = (
-                models.VariableExpression(name='test')
-            )
+            mock_expr.return_value = models.VariableExpression(name='test')
             result = parse_order_by(ctx)
 
         self.assertEqual(len(result.items), 2)
@@ -409,10 +405,8 @@ class TestLimit(unittest.TestCase):
         with unittest.mock.patch(
             'pgraf_cypher.parsers.parse_expression'
         ) as mock_expr:
-            mock_expr.return_value = (
-                models.LiteralExpression(
-                    value=models.LiteralValue(type='integer', value=10)
-                )
+            mock_expr.return_value = models.LiteralExpression(
+                value=models.LiteralValue(type='integer', value=10)
             )
             result = parse_limit(ctx)
 
@@ -430,10 +424,8 @@ class TestSkip(unittest.TestCase):
         with unittest.mock.patch(
             'pgraf_cypher.parsers.parse_expression'
         ) as mock_expr:
-            mock_expr.return_value = (
-                models.LiteralExpression(
-                    value=models.LiteralValue(type='integer', value=5)
-                )
+            mock_expr.return_value = models.LiteralExpression(
+                value=models.LiteralValue(type='integer', value=5)
             )
             result = parse_skip(ctx)
 
@@ -498,9 +490,7 @@ class TestFilterClause(unittest.TestCase):
         with unittest.mock.patch(
             'pgraf_cypher.parsers.parse_expression'
         ) as mock_expr:
-            mock_expr.return_value = (
-                models.VariableExpression(name='x')
-            )
+            mock_expr.return_value = models.VariableExpression(name='x')
             result = parse_filter_clause(ctx)
 
         self.assertEqual(
@@ -525,10 +515,8 @@ class TestSetClause(unittest.TestCase):
         with unittest.mock.patch(
             'pgraf_cypher.parsers.parse_expression'
         ) as mock_expr:
-            mock_expr.return_value = (
-                models.LiteralExpression(
-                    value=models.LiteralValue(type='string', value='"John"')
-                )
+            mock_expr.return_value = models.LiteralExpression(
+                value=models.LiteralValue(type='string', value='"John"')
             )
             result = parse_set_clause(ctx)
 
@@ -603,9 +591,7 @@ class TestWhereClause(unittest.TestCase):
         with unittest.mock.patch(
             'pgraf_cypher.parsers.parse_expression'
         ) as mock_expr:
-            mock_expr.return_value = (
-                models.VariableExpression(name='x')
-            )
+            mock_expr.return_value = models.VariableExpression(name='x')
             result = parse_where_clause(ctx)
 
         self.assertEqual(
@@ -632,9 +618,7 @@ class TestUnwindClause(unittest.TestCase):
         with unittest.mock.patch(
             'pgraf_cypher.parsers.parse_expression'
         ) as mock_expr:
-            mock_expr.return_value = (
-                models.VariableExpression(name='list')
-            )
+            mock_expr.return_value = models.VariableExpression(name='list')
             result = parse_unwind_clause(ctx)
 
         self.assertEqual(

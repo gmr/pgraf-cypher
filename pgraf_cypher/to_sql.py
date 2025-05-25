@@ -161,19 +161,19 @@ class CypherToSQL(antlr4.ParseTreeListener):
         print('enterReturnBody', parsers.parse_return_body(ctx))
 
     def enterReturnItem(self, ctx: Cypher25Parser.ReturnItemContext) -> None:
-        print('enterReturnItem', ctx)
+        print('enterReturnItem', parsers.parse_return_item(ctx))
 
     def enterReturnItems(self, ctx: Cypher25Parser.ReturnItemsContext) -> None:
-        print('enterReturnItems', ctx)
+        print('enterReturnItems', parsers.parse_return_items(ctx))
 
     def enterOrderItem(self, ctx: Cypher25Parser.OrderItemContext) -> None:
-        print('enterOrderItem', ctx)
+        print('enterOrderItem', parsers.parse_order_item(ctx))
 
     def enterAscToken(self, ctx: Cypher25Parser.AscTokenContext) -> None:
         print('enterAscToken', ctx)
 
     def enterDescToken(self, ctx: Cypher25Parser.DescTokenContext) -> None:
-        print('enterDescToken', ctx)
+        print('enterDescToken', parsers.parse_desc_token(ctx))
 
     def enterOrderBy(self, ctx: Cypher25Parser.OrderByContext) -> None:
         print('enterOrderBy', parsers.parse_order_by(ctx))
@@ -192,7 +192,7 @@ class CypherToSQL(antlr4.ParseTreeListener):
 
     def enterMatchClause(self, ctx: Cypher25Parser.MatchClauseContext) -> None:
         match_clause = parsers.parse_match_clause(ctx)
-        print('enterMatchClause',  match_clause)
+        print('enterMatchClause', match_clause)
         self._matches += match_clause.patterns
 
     def enterMatchMode(self, ctx: Cypher25Parser.MatchModeContext) -> None:
@@ -287,12 +287,12 @@ class CypherToSQL(antlr4.ParseTreeListener):
         print('enterPattern', parsers.parse_pattern(ctx))
 
     def enterQuantifier(self, ctx: Cypher25Parser.QuantifierContext) -> None:
-        print('enterQuantifier', ctx)
+        print('enterQuantifier', parsers.parse_quantifier(ctx))
 
     def enterAnonymousPattern(
         self, ctx: Cypher25Parser.AnonymousPatternContext
     ) -> None:
-        #print('enterAnonymousPattern', parsers.parse_anonymous_pattern(ctx))
+        # print('enterAnonymousPattern', parsers.parse_anonymous_pattern(ctx))
         ...
 
     def enterShortestPathPattern(
@@ -303,7 +303,7 @@ class CypherToSQL(antlr4.ParseTreeListener):
     def enterPatternElement(
         self, ctx: Cypher25Parser.PatternElementContext
     ) -> None:
-        print('enterPatternElement', ctx)
+        print('enterPatternElement', parsers.parse_pattern_element(ctx))
 
     def enterAllShortestPath(
         self, ctx: Cypher25Parser.AllShortestPathContext
@@ -348,7 +348,7 @@ class CypherToSQL(antlr4.ParseTreeListener):
     def enterParenthesizedPath(
         self, ctx: Cypher25Parser.ParenthesizedPathContext
     ) -> None:
-        print('enterParenthesizedPath', ctx)
+        print('enterParenthesizedPath', parsers.parse_parenthesized_path(ctx))
 
     def enterNodeLabels(self, ctx: Cypher25Parser.NodeLabelsContext) -> None:
         print('enterNodeLabels', ctx)
@@ -385,24 +385,26 @@ class CypherToSQL(antlr4.ParseTreeListener):
         print('enterLabelOrRelType', ctx)
 
     def enterProperties(self, ctx: Cypher25Parser.PropertiesContext) -> None:
-        print('enterProperties', ctx)
+        print('enterProperties', parsers.parse_properties(ctx))
 
     def enterRelationshipPattern(
         self, ctx: Cypher25Parser.RelationshipPatternContext
     ) -> None:
-        print('enterRelationshipPattern', ctx)
+        print(
+            'enterRelationshipPattern', parsers.parse_relationship_pattern(ctx)
+        )
 
     def enterLeftArrow(self, ctx: Cypher25Parser.LeftArrowContext) -> None:
         print('enterLeftArrow', ctx)
 
     def enterArrowLine(self, ctx: Cypher25Parser.ArrowLineContext) -> None:
-        print('enterArrowLine', ctx)
+        print('enterArrowLine', parsers.parse_arrow_line(ctx))
 
     def enterRightArrow(self, ctx: Cypher25Parser.RightArrowContext) -> None:
-        print('enterRightArrow', ctx)
+        print('enterRightArrow', parsers.parse_right_arrow(ctx))
 
     def enterPathLength(self, ctx: Cypher25Parser.PathLengthContext) -> None:
-        print('enterPathLength', ctx)
+        print('enterPathLength', parsers.parse_path_length(ctx))
 
     def enterLabelExpression(
         self, ctx: Cypher25Parser.LabelExpressionContext
@@ -418,7 +420,7 @@ class CypherToSQL(antlr4.ParseTreeListener):
         print('enterDynamicLabel', ctx)
 
     def enterLabelName(self, ctx: Cypher25Parser.LabelNameContext) -> None:
-        print('enterLabelName', ctx)
+        print('enterLabelName', parsers.parse_label_name(ctx))
 
     def enterParenthesizedLabelExpression(
         self, ctx: Cypher25Parser.ParenthesizedLabelExpressionContext
@@ -426,26 +428,7 @@ class CypherToSQL(antlr4.ParseTreeListener):
         print('enterParenthesizedLabelExpression', ctx)
 
     def enterExpression(self, ctx: Cypher25Parser.ExpressionContext) -> None:
-        print('enterExpression', ctx)
-
-    def enterExpression11(
-        self, ctx: Cypher25Parser.Expression11Context
-    ) -> None:
-        print('enterExpression11', ctx)
-
-    def enterExpression10(
-        self, ctx: Cypher25Parser.Expression10Context
-    ) -> None:
-        print('enterExpression10', ctx)
-
-    def enterExpression9(self, ctx: Cypher25Parser.Expression9Context) -> None:
-        print('enterExpression9', ctx)
-
-    def enterExpression8(self, ctx: Cypher25Parser.Expression8Context) -> None:
-        print('enterExpression8', ctx)
-
-    def enterExpression7(self, ctx: Cypher25Parser.Expression7Context) -> None:
-        print('enterExpression7', ctx)
+        print('enterExpression', parsers.parse_expression(ctx))
 
     def enterTypeComparison(
         self, ctx: Cypher25Parser.TypeComparisonContext
@@ -475,21 +458,6 @@ class CypherToSQL(antlr4.ParseTreeListener):
     def enterNormalForm(self, ctx: Cypher25Parser.NormalFormContext) -> None:
         print('enterNormalForm', ctx)
 
-    def enterExpression6(self, ctx: Cypher25Parser.Expression6Context) -> None:
-        print('enterExpression6', ctx)
-
-    def enterExpression5(self, ctx: Cypher25Parser.Expression5Context) -> None:
-        print('enterExpression5', ctx)
-
-    def enterExpression4(self, ctx: Cypher25Parser.Expression4Context) -> None:
-        print('enterExpression4', ctx)
-
-    def enterExpression3(self, ctx: Cypher25Parser.Expression3Context) -> None:
-        print('enterExpression3', ctx)
-
-    def enterExpression2(self, ctx: Cypher25Parser.Expression2Context) -> None:
-        print('enterExpression2', ctx)
-
     def enterIndexPostfix(
         self, ctx: Cypher25Parser.IndexPostfixContext
     ) -> None:
@@ -498,7 +466,7 @@ class CypherToSQL(antlr4.ParseTreeListener):
     def enterPropertyPostfix(
         self, ctx: Cypher25Parser.PropertyPostfixContext
     ) -> None:
-        print('enterPropertyPostfix', ctx)
+        print('enterPropertyPostfix', parsers.parse_property_postfix(ctx))
 
     def enterRangePostfix(
         self, ctx: Cypher25Parser.RangePostfixContext
@@ -506,7 +474,7 @@ class CypherToSQL(antlr4.ParseTreeListener):
         print('enterRangePostfix', ctx)
 
     def enterProperty(self, ctx: Cypher25Parser.PropertyContext) -> None:
-        print('enterProperty', ctx)
+        print('enterProperty', parsers.parse_property(ctx))
 
     def enterDynamicProperty(
         self, ctx: Cypher25Parser.DynamicPropertyContext
@@ -523,13 +491,10 @@ class CypherToSQL(antlr4.ParseTreeListener):
     ) -> None:
         print('enterDynamicPropertyExpression', ctx)
 
-    def enterExpression1(self, ctx: Cypher25Parser.Expression1Context) -> None:
-        print('enterExpression1', ctx)
-
     def enterNummericLiteral(
         self, ctx: Cypher25Parser.NummericLiteralContext
     ) -> None:
-        print('enterNummericLiteral', ctx)
+        print('enterNummericLiteral', parsers.parse_nummeric_literal(ctx))
 
     def enterBooleanLiteral(
         self, ctx: Cypher25Parser.BooleanLiteralContext
@@ -549,7 +514,7 @@ class CypherToSQL(antlr4.ParseTreeListener):
     def enterStringsLiteral(
         self, ctx: Cypher25Parser.StringsLiteralContext
     ) -> None:
-        print('enterStringsLiteral', ctx)
+        print('enterStringsLiteral', parsers.parse_strings_literal(ctx))
 
     def enterCaseExpression(
         self, ctx: Cypher25Parser.CaseExpressionContext
@@ -650,7 +615,7 @@ class CypherToSQL(antlr4.ParseTreeListener):
     def enterExistsExpression(
         self, ctx: Cypher25Parser.ExistsExpressionContext
     ) -> None:
-        print('enterExistsExpression', ctx)
+        print('enterExistsExpression', parsers.parse_exists_expression(ctx))
 
     def enterCountExpression(
         self, ctx: Cypher25Parser.CountExpressionContext
@@ -665,7 +630,7 @@ class CypherToSQL(antlr4.ParseTreeListener):
     def enterNumberLiteral(
         self, ctx: Cypher25Parser.NumberLiteralContext
     ) -> None:
-        print('enterNumberLiteral', ctx)
+        print('enterNumberLiteral', parsers.parse_number_literal(ctx))
 
     def enterSignedIntegerLiteral(
         self, ctx: Cypher25Parser.SignedIntegerLiteralContext
@@ -678,7 +643,7 @@ class CypherToSQL(antlr4.ParseTreeListener):
     def enterPropertyKeyName(
         self, ctx: Cypher25Parser.PropertyKeyNameContext
     ) -> None:
-        print('enterPropertyKeyName', ctx)
+        print('enterPropertyKeyName', parsers.parse_property_key_name(ctx))
 
     def enterParameter(self, ctx: Cypher25Parser.ParameterContext) -> None:
         print('enterParameter', ctx)
@@ -707,7 +672,7 @@ class CypherToSQL(antlr4.ParseTreeListener):
         print('enterNamespace', ctx)
 
     def enterVariable(self, ctx: Cypher25Parser.VariableContext) -> None:
-        print('enterVariable', ctx)
+        print('enterVariable', parsers.parse_variable(ctx))
 
     def enterNonEmptyNameList(
         self, ctx: Cypher25Parser.NonEmptyNameListContext
@@ -1577,7 +1542,7 @@ class CypherToSQL(antlr4.ParseTreeListener):
     def enterStringLiteral(
         self, ctx: Cypher25Parser.StringLiteralContext
     ) -> None:
-        print('enterStringLiteral', ctx)
+        print('enterStringLiteral', parsers.parse_string_literal(ctx))
 
     def enterStringOrParameterExpression(
         self, ctx: Cypher25Parser.StringOrParameterExpressionContext
@@ -1600,12 +1565,15 @@ class CypherToSQL(antlr4.ParseTreeListener):
         print('enterMapOrParameter', ctx)
 
     def enterMap(self, ctx: Cypher25Parser.MapContext) -> None:
-        print('enterMap', ctx)
+        print('enterMap', parsers.parse_map(ctx))
 
     def enterSymbolicVariableNameString(
         self, ctx: Cypher25Parser.SymbolicVariableNameStringContext
     ) -> None:
-        print('enterSymbolicVariableNameString', ctx)
+        print(
+            'enterSymbolicVariableNameString',
+            parsers.parse_symbolic_variable_name_string(ctx),
+        )
 
     def enterEscapedSymbolicVariableNameString(
         self, ctx: Cypher25Parser.EscapedSymbolicVariableNameStringContext
@@ -1615,12 +1583,17 @@ class CypherToSQL(antlr4.ParseTreeListener):
     def enterUnescapedSymbolicVariableNameString(
         self, ctx: Cypher25Parser.UnescapedSymbolicVariableNameStringContext
     ) -> None:
-        print('enterUnescapedSymbolicVariableNameString', ctx)
+        print(
+            'enterUnescapedSymbolicVariableNameString',
+            parsers.parse_unescaped_symbolic_variable_name_string(ctx),
+        )
 
     def enterSymbolicNameString(
         self, ctx: Cypher25Parser.SymbolicNameStringContext
     ) -> None:
-        print('enterSymbolicNameString', ctx)
+        print(
+            'enterSymbolicNameString', parsers.parse_symbolic_name_string(ctx)
+        )
 
     def enterEscapedSymbolicNameString(
         self, ctx: Cypher25Parser.EscapedSymbolicNameStringContext
@@ -1630,12 +1603,10 @@ class CypherToSQL(antlr4.ParseTreeListener):
     def enterUnescapedSymbolicNameString(
         self, ctx: Cypher25Parser.UnescapedSymbolicNameStringContext
     ) -> None:
-        print('enterUnescapedSymbolicNameString', ctx)
-
-    def enterUnescapedSymbolicNameString_(
-        self, ctx: Cypher25Parser.UnescapedSymbolicNameString_Context
-    ) -> None:
-        print('enterUnescapedSymbolicNameString_', ctx)
+        print(
+            'enterUnescapedSymbolicNameString',
+            parsers.parse_unescaped_symbolic_name_string(ctx),
+        )
 
     def enterEndOfFile(self, ctx: Cypher25Parser.EndOfFileContext) -> None:
         print('enterEndOfFile', ctx)
