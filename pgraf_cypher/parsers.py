@@ -1,3 +1,5 @@
+import typing
+
 from pgraf_cypher import antlr, models
 from pgraf_cypher.antlr import Cypher25Parser
 
@@ -79,6 +81,9 @@ def parse_command(ctx: Cypher25Parser.CommandContext) -> str:
     return ctx.getText() if ctx else ''
 
 
+# Removed duplicate parse_exists_expression - see line 1228
+
+
 def parse_expression(
     ctx: Cypher25Parser.ExpressionContext | None,
 ) -> models.Expression:
@@ -150,7 +155,9 @@ def _expr7(ctx: Cypher25Parser.Expression7Context) -> models.Expression:
     expr = _expr6(ctx.expression6())
     if ctx.comparisonExpression6():
         comp_expr = ctx.comparisonExpression6()
-        if comp_expr.StringAndListComparison():
+        if isinstance(
+            comp_expr, Cypher25Parser.StringAndListComparisonContext
+        ):
             op = None
             if comp_expr.REGEQ():
                 op = '=~'
@@ -167,13 +174,13 @@ def _expr7(ctx: Cypher25Parser.Expression7Context) -> models.Expression:
                 left=expr,
                 right=_expr6(comp_expr.expression6()),
             )
-        elif comp_expr.NullComparison():
+        elif isinstance(comp_expr, Cypher25Parser.NullComparisonContext):
             return models.NullComparisonExpression(
                 operator='IS NULL' if not comp_expr.NOT() else 'IS NOT NULL',
                 operand=expr,
             )
-        elif comp_expr.TypeComparison():
-            models.TypeComparisonExpression(
+        elif isinstance(comp_expr, Cypher25Parser.TypeComparisonContext):
+            return models.TypeComparisonExpression(
                 operator='IS' if not comp_expr.NOT() else 'IS NOT',
                 operand=expr,
                 expected_type=comp_expr.type().getText(),
@@ -280,11 +287,20 @@ def _expr1(ctx: Cypher25Parser.Expression1Context) -> models.Expression:
         return models.FunctionExpression(
             name=func_ctx.functionName().getText(),
             arguments=[
-                parse_expression(arg) for arg in func_ctx.functionArgument()
+                parse_expression(arg.expression())
+                for arg in func_ctx.functionArgument()
             ],
         )
     elif ctx.parenthesizedExpression():
         return parse_expression(ctx.parenthesizedExpression().expression())
+    elif ctx.existsExpression():
+        return parse_exists_expression(ctx.existsExpression())
+    elif ctx.countStar():
+        # Handle COUNT(*) special case
+        return models.FunctionExpression(
+            name='COUNT',
+            arguments=[],  # COUNT(*) has no arguments in SQL
+        )
     return models.Expression(type=models.ExpressionType.UNKNOWN)
 
 
@@ -395,8 +411,18 @@ def parse_literal(ctx: Cypher25Parser.LiteralContext) -> models.LiteralValue:
         value = ctx.getText()
         literal_type = 'float' if '.' in value else 'integer'
         return models.LiteralValue(type=literal_type, value=ctx.getText())  # type: ignore
-    elif isinstance(ctx, Cypher25Parser.StringLiteralContext):
-        return models.LiteralValue(type='string', value=ctx.getText())
+    elif isinstance(
+        ctx,
+        Cypher25Parser.StringLiteralContext
+        | Cypher25Parser.StringsLiteralContext,
+    ):
+        text = ctx.getText()
+        # Remove surrounding quotes
+        if text.startswith("'") and text.endswith("'"):
+            text = text[1:-1]
+        elif text.startswith('"') and text.endswith('"'):
+            text = text[1:-1]
+        return models.LiteralValue(type='string', value=text)
     elif isinstance(ctx, Cypher25Parser.BooleanLiteralContext):
         return models.LiteralValue(
             type='boolean', value=ctx.getText().lower() == 'true'
@@ -551,7 +577,7 @@ def parse_order_by(
 
 def parse_order_item(ctx: Cypher25Parser.OrderItemContext) -> models.OrderItem:
     """Parse an individual order item."""
-    direction: models.typing.Literal[ASC, DESC] | None = None
+    direction: typing.Literal['ASC', 'DESC'] | None = None
     if ctx.ascToken():
         direction = 'ASC'
     elif ctx.descToken():
@@ -597,11 +623,11 @@ def parse_pattern_element(
 
     # Count nodes and relationships based on pattern
     # Simple heuristic: each '(' starts a node, each '[' starts a relationship
-    node_count = pattern_text.count('(')
     rel_count = pattern_text.count('[')
 
     # For simple patterns, just parse what's there
-    # This is a simplified approach - in reality we'd need to traverse the parse tree properly
+    # This is a simplified approach - in reality we'd need to traverse
+    # the parse tree properly
     if hasattr(ctx, 'nodePattern'):
         for node_ctx in ctx.nodePattern():
             nodes.append(parse_node_pattern(node_ctx))
@@ -623,7 +649,7 @@ def parse_pattern_element(
                 # Extract labels
                 label_part = rel_match.split(':')[1].split('*')[0].strip()
                 if '|' in label_part:
-                    labels = [l.strip() for l in label_part.split('|')]
+                    labels = [label.strip() for label in label_part.split('|')]
                 else:
                     labels = [label_part]
 
@@ -793,7 +819,7 @@ def parse_statement(
 def parse_union(ctx: Cypher25Parser.UnionContext) -> models.Union:
     """Parse a union query with single queries."""
     single_queries = []
-    union_type: models.typing.Literal[ALL, DISTINCT] | None = None
+    union_type: typing.Literal['ALL', 'DISTINCT'] | None = None
     for single_query_ctx in ctx.singleQuery():
         single_queries.append(parse_single_query(single_query_ctx))
     if len(ctx.children) > 1:
@@ -921,7 +947,7 @@ def parse_relationship_pattern(
         properties = parse_node_properties(ctx.properties())
 
     # Determine direction based on arrow context
-    direction: models.typing.Literal[outgoing, incoming, both] = 'both'
+    direction: typing.Literal['outgoing', 'incoming', 'both'] = 'both'
 
     # Check parent context for arrow direction
     parent = ctx.parentCtx
@@ -1095,32 +1121,19 @@ def parse_strings_literal(
     """Parse a strings literal and return a LiteralValue."""
     if not ctx:
         return models.LiteralValue(type='string', value='')
-
-    text = ctx.getText()
-    # Remove quotes if present
-    if text.startswith('"') and text.endswith('"'):
-        text = text[1:-1]
-    elif text.startswith("'") and text.endswith("'"):
-        text = text[1:-1]
-
-    return models.LiteralValue(type='string', value=text)
+    return models.LiteralValue(type='string', value=ctx.getText().strip('\'"'))
 
 
 def parse_string_literal(
     ctx: Cypher25Parser.StringLiteralContext | None,
-) -> models.LiteralValue:
+) -> list[models.LiteralValue]:
     """Parse a string literal and return a LiteralValue."""
     if not ctx:
-        return models.LiteralValue(type='string', value='')
-
-    text = ctx.getText()
-    # Remove quotes if present
-    if text.startswith('"') and text.endswith('"'):
-        text = text[1:-1]
-    elif text.startswith("'") and text.endswith("'"):
-        text = text[1:-1]
-
-    return models.LiteralValue(type='string', value=text)
+        return []
+    return [
+        models.LiteralValue(type='string', value=val.strip('\'"').strip())
+        for val in ctx.getText().split(',')
+    ]
 
 
 def parse_map(ctx: Cypher25Parser.MapContext | None) -> dict[str, object]:
@@ -1165,83 +1178,95 @@ def parse_right_arrow(ctx: Cypher25Parser.RightArrowContext | None) -> str:
 
 def parse_exists_expression(
     ctx: Cypher25Parser.ExistsExpressionContext | None,
-) -> models.Expression:
-    """Parse an exists expression and return an Expression model."""
+) -> models.ExistsExpression:
+    """Parse an exists expression and return an ExistsExpression model."""
     if not ctx:
-        return models.Expression(type=models.ExpressionType.EMPTY)
+        return models.ExistsExpression()
 
-    # For now, return a simple expression with the EXISTS type
-    # In a full implementation, you'd parse the inner expression
-    return models.Expression(type=models.ExpressionType.EXISTS)
+    # Check if it has a regular query (full query inside EXISTS)
+    if ctx.regularQuery():
+        # EXISTS { full query }
+        # For now, we'll parse it as a pattern if it's a MATCH
+        regular_query = ctx.regularQuery()
+
+        # The regularQuery has a union() method
+        if hasattr(regular_query, 'union') and regular_query.union():
+            union = regular_query.union()
+            single_queries = union.singleQuery()
+            if single_queries:
+                for single_query in single_queries:
+                    clauses = single_query.clause()
+                    if clauses:
+                        for clause in clauses:
+                            if clause.matchClause():
+                                match_clause = parse_match_clause(
+                                    clause.matchClause()
+                                )
+                                return models.ExistsExpression(
+                                    match_clause=match_clause
+                                )
+
+    if ctx.patternList():  # EXISTS { pattern }
+        pattern_list = ctx.patternList()
+        if pattern_list.pattern():
+            match_clause = models.MatchClause()
+            match_clause.patterns = [
+                parse_pattern(p) for p in pattern_list.pattern()
+            ]
+            return models.ExistsExpression(match_clause=match_clause)
+    return models.ExistsExpression()
 
 
 def parse_path_length(
     ctx: Cypher25Parser.PathLengthContext | None,
-) -> dict[str, int | None]:
-    """Parse a path length and return a dictionary with min/max values."""
+) -> models.PathLength:
+    """Parse a path length `*1..5 or *2 or *..*`."""
     if not ctx:
-        return {'min': None, 'max': None}
-
-    # Parse the path length range like *1..5 or *2 or *..*
+        return models.PathLength()
     text = ctx.getText()
-
-    # Remove the leading * if present
-    if text.startswith('*'):
+    if text.startswith('*'):  # Remove the leading * if present
         text = text[1:]
-
-    if '..' in text:
-        # Range like 1..5
+    if '..' in text:  # Range like 1..5
         parts = text.split('..')
         try:
             min_val = int(parts[0]) if parts[0] and parts[0] != '' else None
             max_val = int(parts[1]) if parts[1] and parts[1] != '' else None
-            return {'min': min_val, 'max': max_val}
+            return models.PathLength(min=min_val, max=max_val)
         except ValueError:
-            return {'min': None, 'max': None}
-    elif text and text != '':
-        # Single value like 3
+            return models.PathLength()
+    elif text and text != '':  # Single value like 3
         try:
-            val = int(text)
-            return {'min': val, 'max': val}
+            return models.PathLength(min=int(text), max=int(text))
         except ValueError:
-            return {'min': None, 'max': None}
+            return models.PathLength()
     else:
-        # Just * means any length
-        return {'min': None, 'max': None}
+        return models.PathLength()  # Just * means any length
 
 
 def parse_quantifier(
     ctx: Cypher25Parser.QuantifierContext | None,
-) -> dict[str, int | None]:
-    """Parse a quantifier and return a dictionary with from/to values."""
+) -> models.Quantifier:
+    """Parse a quantifier like {1,5} or {2} or {,3}."""
     if not ctx:
-        return {'from': None, 'to': None}
-
-    # Parse quantifier like {1,5} or {2} or {,3}
+        return models.Quantifier()
     text = ctx.getText()
-
-    # Remove braces if present
     if text.startswith('{') and text.endswith('}'):
         text = text[1:-1]
-
-    if ',' in text:
-        # Range like 1,5 or ,3 or 2,
+    if ',' in text:  # Range like 1,5 or ,3 or 2,
         parts = text.split(',')
         try:
             from_val = int(parts[0]) if parts[0] and parts[0] != '' else None
             to_val = int(parts[1]) if parts[1] and parts[1] != '' else None
-            return {'from': from_val, 'to': to_val}
+            return models.Quantifier(from_value=from_val, to_value=to_val)
         except ValueError:
-            return {'from': None, 'to': None}
-    elif text and text != '':
-        # Single value like 3
+            return models.Quantifier()
+    elif text and text != '':  # Single value like 3
         try:
-            val = int(text)
-            return {'from': val, 'to': val}
+            return models.Quantifier(from_value=int(text), to_value=int(text))
         except ValueError:
-            return {'from': None, 'to': None}
+            return models.Quantifier()
     else:
-        return {'from': None, 'to': None}
+        return models.Quantifier()
 
 
 def parse_parenthesized_path(

@@ -57,7 +57,7 @@ class TestExpression(unittest.TestCase):
         ctx.getText.return_value = '"hello"'
         result = parse_literal(ctx)
         self.assertEqual(result.type, 'string')
-        self.assertEqual(result.value, '"hello"')
+        self.assertEqual(result.value, 'hello')
 
         # Test boolean literal
         ctx = Mock(spec=Cypher25Parser.BooleanLiteralContext)
