@@ -96,7 +96,36 @@ class RelationshipPattern(BaseModel):
 - **Validating**: Automatic validation via Pydantic
 - **Serializable**: Can be converted to/from JSON
 
-### 3. Parse Tree Visitor (`pgraf_cypher/parsers.py`)
+### 3. Parse Tree Listener (`pgraf_cypher/listener.py`)
+
+ANTLR parse tree listener for walking the parse tree:
+
+```python
+class CypherListener(antlr4.ParseTreeListener):
+    """Listener that converts parse trees to Pydantic models."""
+
+    def __init__(self) -> None:
+        self._inside_exists = False
+        self._query = models.CypherQuery()
+
+    @property
+    def query(self) -> models.CypherQuery:
+        """Return the parsed Cypher query."""
+        return self._query
+
+    def enterReturnClause(
+        self, ctx: Cypher25Parser.ReturnClauseContext
+    ) -> None:
+        self._query.return_clause = parsers.parse_return_clause(ctx)
+
+    def enterExistsExpression(
+        self, ctx: Cypher25Parser.ExistsExpressionContext
+    ) -> None:
+        """Mark that we're entering an EXISTS expression."""
+        self._inside_exists = True
+```
+
+### 4. Parse Tree Visitors (`pgraf_cypher/parsers.py`)
 
 Converts ANTLR parse trees to Pydantic models:
 
@@ -149,12 +178,12 @@ class CypherToModelsVisitor(antlr4.ParseTreeVisitor):
 - Error handling and recovery
 - Context preservation
 
-### 4. SQL Generator (`pgraf_cypher/to_sql.py`)
+### 5. SQL Translator (`pgraf_cypher/translator.py`)
 
 Translates AST models to PostgreSQL SQL:
 
 ```python
-class SQLGenerator:
+class Translator:
     """Generates PostgreSQL SQL from Cypher AST."""
 
     def __init__(self, schema: str = "pgraf"):
@@ -274,7 +303,7 @@ def translate_relationship_pattern(
     return join_sql
 ```
 
-### 5. Main API (`pgraf_cypher/main.py`)
+### 6. Main API (`pgraf_cypher/main.py`)
 
 Public interface combining all components:
 
@@ -300,8 +329,8 @@ class PGrafCypher:
         ast = visitor.visit(tree)
 
         # Generate SQL
-        generator = to_sql.SQLGenerator(schema="pgraf")
-        return generator.translate(ast)
+        translator = translator.Translator(schema="pgraf")
+        return translator.translate(ast)
 
     async def execute(self, query: str) -> AsyncCursor:
         """Translate and execute Cypher query."""
@@ -479,7 +508,7 @@ class JSONBPropertyStrategy(PropertyTranslationStrategy):
 ### 3. SQL Generation Efficiency
 
 ```python
-class OptimizedSQLGenerator(SQLGenerator):
+class OptimizedTranslator(Translator):
     """Enhanced SQL generator with optimizations."""
 
     def optimize_joins(self) -> str:
@@ -550,7 +579,7 @@ class UnsupportedFeatureError(Exception):
 ### 2. Custom SQL Generation
 
 ```python
-class CustomSQLGenerator(SQLGenerator):
+class CustomTranslator(Translator):
     """Custom SQL generator with domain-specific optimizations."""
 
     def translate_custom_function(self, func: CustomFunction) -> str:
@@ -582,14 +611,14 @@ class CustomSQLGenerator(SQLGenerator):
 The architecture supports different SQL backends:
 
 ```python
-class MySQLGenerator(SQLGenerator):
+class MySQLTranslator(Translator):
     """SQL generator for MySQL backend."""
 
     def translate_jsonb_access(self, alias: str, property: str) -> str:
         # MySQL uses JSON_EXTRACT instead of ->
         return f"JSON_EXTRACT({alias}.properties, '$.{property}')"
 
-class SQLiteGenerator(SQLGenerator):
+class SQLiteTranslator(Translator):
     """SQL generator for SQLite backend."""
 
     def translate_array_contains(self, alias: str, value: str) -> str:

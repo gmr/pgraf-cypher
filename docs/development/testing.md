@@ -160,8 +160,9 @@ Test model to SQL translation:
 
 ```python
 import unittest
-from pgraf_cypher.to_sql import SQLGenerator
+from pgraf_cypher.listener import SQLGenerator
 from pgraf_cypher.models import NodePattern, MatchClause
+
 
 class TestSQLGeneration(unittest.TestCase):
     def setUp(self):

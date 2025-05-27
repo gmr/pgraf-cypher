@@ -1,8 +1,8 @@
 # SQL Translation
 
-The to_sql module converts model objects to PostgreSQL SQL statements.
+The translator module converts model objects to PostgreSQL SQL statements.
 
-::: pgraf_cypher.to_sql
+::: pgraf_cypher.translator
     options:
       show_root_heading: true
       show_source: true
