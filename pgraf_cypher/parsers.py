@@ -86,7 +86,7 @@ def parse_command(ctx: Cypher25Parser.CommandContext) -> str:
 
 def parse_expression(
     ctx: Cypher25Parser.ExpressionContext | None,
-) -> models.Expression:
+) -> models.ExpressionUnion:
     """Parse the top-level expression (contains OR operations)."""
     if not ctx:
         return models.EmptyExpression()
@@ -98,7 +98,7 @@ def parse_expression(
     return _expr11(ctx.expression11(0))
 
 
-def _expr11(ctx: Cypher25Parser.Expression11Context) -> models.Expression:
+def _expr11(ctx: Cypher25Parser.Expression11Context) -> models.ExpressionUnion:
     """Parse expression11 (contains XOR operations)."""
     if len(ctx.expression10()) > 1:
         return models.OperatorExpression(
@@ -108,7 +108,7 @@ def _expr11(ctx: Cypher25Parser.Expression11Context) -> models.Expression:
     return _expr10(ctx.expression10(0))
 
 
-def _expr10(ctx: Cypher25Parser.Expression10Context) -> models.Expression:
+def _expr10(ctx: Cypher25Parser.Expression10Context) -> models.ExpressionUnion:
     """Parse expression10 (contains AND operations)."""
     if len(ctx.expression9()) > 1:
         return models.OperatorExpression(
@@ -118,7 +118,7 @@ def _expr10(ctx: Cypher25Parser.Expression10Context) -> models.Expression:
     return _expr9(ctx.expression9(0))
 
 
-def _expr9(ctx: Cypher25Parser.Expression9Context) -> models.Expression:
+def _expr9(ctx: Cypher25Parser.Expression9Context) -> models.ExpressionUnion:
     """Parse expression9 (contains NOT operations)."""
     expr = _expr8(ctx.expression8())
     return (
@@ -128,7 +128,7 @@ def _expr9(ctx: Cypher25Parser.Expression9Context) -> models.Expression:
     )
 
 
-def _expr8(ctx: Cypher25Parser.Expression8Context) -> models.Expression:
+def _expr8(ctx: Cypher25Parser.Expression8Context) -> models.ExpressionUnion:
     """Parse expression8 (contains comparison operations)."""
     if len(ctx.expression7()) > 1:
         operands = [_expr7(expr) for expr in ctx.expression7()]
@@ -150,7 +150,7 @@ def _expr8(ctx: Cypher25Parser.Expression8Context) -> models.Expression:
     return _expr7(ctx.expression7(0))
 
 
-def _expr7(ctx: Cypher25Parser.Expression7Context) -> models.Expression:
+def _expr7(ctx: Cypher25Parser.Expression7Context) -> models.ExpressionUnion:
     """Parse expression7 (contains string/list comparisons)."""
     expr = _expr6(ctx.expression6())
     if ctx.comparisonExpression6():
@@ -188,7 +188,7 @@ def _expr7(ctx: Cypher25Parser.Expression7Context) -> models.Expression:
     return expr
 
 
-def _expr6(ctx: Cypher25Parser.Expression6Context) -> models.Expression:
+def _expr6(ctx: Cypher25Parser.Expression6Context) -> models.ExpressionUnion:
     """Parse expression6 (contains addition/subtraction)."""
     if len(ctx.expression5()) > 1:
         operands = [_expr5(expr) for expr in ctx.expression5()]
@@ -202,7 +202,7 @@ def _expr6(ctx: Cypher25Parser.Expression6Context) -> models.Expression:
     return _expr5(ctx.expression5(0))
 
 
-def _expr5(ctx: Cypher25Parser.Expression5Context) -> models.Expression:
+def _expr5(ctx: Cypher25Parser.Expression5Context) -> models.ExpressionUnion:
     """Parse expression5 (contains multiplication/division/modulo)."""
     if len(ctx.expression4()) > 1:
         operands = [_expr4(expr) for expr in ctx.expression4()]
@@ -216,7 +216,7 @@ def _expr5(ctx: Cypher25Parser.Expression5Context) -> models.Expression:
     return _expr4(ctx.expression4(0))
 
 
-def _expr4(ctx: Cypher25Parser.Expression4Context) -> models.Expression:
+def _expr4(ctx: Cypher25Parser.Expression4Context) -> models.ExpressionUnion:
     """Parse expression4 (contains power operations)."""
     if len(ctx.expression3()) > 1:
         operands = [_expr3(expr) for expr in ctx.expression3()]
@@ -226,7 +226,7 @@ def _expr4(ctx: Cypher25Parser.Expression4Context) -> models.Expression:
     return _expr3(ctx.expression3(0))
 
 
-def _expr3(ctx: Cypher25Parser.Expression3Context) -> models.Expression:
+def _expr3(ctx: Cypher25Parser.Expression3Context) -> models.ExpressionUnion:
     """Parse expression3 (unary plus/minus)."""
     expr = _expr2(ctx.expression2())
     if ctx.PLUS():
@@ -236,7 +236,7 @@ def _expr3(ctx: Cypher25Parser.Expression3Context) -> models.Expression:
     return expr
 
 
-def _expr2(ctx: Cypher25Parser.Expression2Context) -> models.Expression:
+def _expr2(ctx: Cypher25Parser.Expression2Context) -> models.ExpressionUnion:
     """Parse expression2 (property access and indexing)."""
     expr = _expr1(ctx.expression1())
     if ctx.postFix():
@@ -271,7 +271,7 @@ def _expr2(ctx: Cypher25Parser.Expression2Context) -> models.Expression:
     return expr
 
 
-def _expr1(ctx: Cypher25Parser.Expression1Context) -> models.Expression:
+def _expr1(ctx: Cypher25Parser.Expression1Context) -> models.ExpressionUnion:
     """Parse expression1 (atomic expressions)."""
     if ctx.literal():
         literal_val = parse_literal(ctx.literal())
@@ -301,7 +301,7 @@ def _expr1(ctx: Cypher25Parser.Expression1Context) -> models.Expression:
             name='COUNT',
             arguments=[],  # COUNT(*) has no arguments in SQL
         )
-    return models.Expression(type=models.ExpressionType.UNKNOWN)
+    return models.EmptyExpression()
 
 
 def parse_filter_clause(
@@ -652,7 +652,7 @@ def parse_pattern_element(
                     labels = [label_part]
 
             # Determine direction from surrounding context
-            direction = 'both'
+            direction: typing.Literal['outgoing', 'incoming', 'both'] = 'both'
             if '-[' in pattern_text and ']->' in pattern_text:
                 direction = 'outgoing'
             elif '<-[' in pattern_text and ']-' in pattern_text:
@@ -957,7 +957,11 @@ def parse_relationship_pattern(
     # Extract path length if present
     if ctx.pathLength():
         path_length_ctx = ctx.pathLength()
-        path_length = parse_path_length(path_length_ctx)
+        path_length_obj = parse_path_length(path_length_ctx)
+        path_length = {
+            'min': path_length_obj.min_value,
+            'max': path_length_obj.max_value,
+        }
 
     # Extract where expression if present
     if ctx.expression():
@@ -1094,7 +1098,7 @@ def parse_return_item(
             expression=models.EmptyExpression(), alias=None
         )
 
-    expression = models.EmptyExpression()
+    expression: models.ExpressionUnion = models.EmptyExpression()
     alias = None
 
     if ctx.expression():
@@ -1248,12 +1252,12 @@ def parse_quantifier(
         try:
             from_val = int(parts[0]) if parts[0] and parts[0] != '' else None
             to_val = int(parts[1]) if parts[1] and parts[1] != '' else None
-            return models.Quantifier(from_value=from_val, to_value=to_val)
+            return models.Quantifier(**{'from': from_val, 'to': to_val})
         except ValueError:
             return models.Quantifier()
     elif text and text != '':  # Single value like 3
         try:
-            return models.Quantifier(from_value=int(text), to_value=int(text))
+            return models.Quantifier(**{'from': int(text), 'to': int(text)})
         except ValueError:
             return models.Quantifier()
     else:

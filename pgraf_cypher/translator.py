@@ -42,13 +42,14 @@ class Translator:
     ) -> tuple[sql.Composable, dict[str, typing.Any]]:
         # print(cypher.model_dump_json(indent=2))
         parameters: dict[str, typing.Any] = {}
-        queries: list[tuple[sql.Composed, list[str]]] = []
+        queries: list[tuple[sql.Composable, list[str]]] = []
         previous_where: list[sql.Composable] = []
         for _pattern_offset, pattern in enumerate(cypher.match_patterns):
             for _element_offset, element in enumerate(pattern.elements):
                 query = Query()
                 for _node_offset, node in enumerate(element.nodes):
-                    query.table_aliases.append(node.variable)
+                    if node.variable:
+                        query.table_aliases.append(node.variable)
                     query.columns += [
                         snippet(f'{node.variable}.id AS {node.variable}_id'),
                         snippet(
@@ -67,9 +68,10 @@ class Translator:
                             f'AS {node.variable}_content'
                         ),
                     ]
-                    query.tables.append(
-                        self._table_alias(self._nodes_table, node.variable)
-                    )
+                    if node.variable:
+                        query.tables.append(
+                            self._table_alias(self._nodes_table, node.variable)
+                        )
                     for label in node.labels:
                         if label.startswith('`'):
                             label = label.strip('`')
@@ -101,12 +103,16 @@ class Translator:
 
         cte_tables: dict[str, set[str]] = {}
         ctes = []
-        for offset, (query, table_aliases) in enumerate(queries):
+        for offset, (rendered_query, table_aliases) in enumerate(queries):
             name = f'cte_{offset}'
             cte_tables[name] = set(table_aliases)
-            ctes.append(snippet(f'{name} AS (') + query + snippet(')'))
+            ctes.append(
+                snippet(f'{name} AS (') + rendered_query + snippet(')')
+            )
 
-        query = sql.SQL('WITH ') + sql.SQL(',\n').join(ctes)
+        final_query: sql.Composable = sql.SQL('WITH ') + sql.SQL(',\n').join(
+            ctes
+        )
 
         columns: list[sql.Composable] = []
         if getattr(cypher.return_clause, 'return_body', None):
@@ -131,34 +137,35 @@ class Translator:
                     join.append(expr)
                     previous_where.append(expr)
 
-        query += snippet('\n SELECT ')
-        query += sql.SQL(', ').join(columns)
+        final_query += snippet('\n SELECT ')
+        final_query += sql.SQL(', ').join(columns)
 
         for offset, cte in enumerate(cte_tables.keys()):
             if offset == 0:
-                query += snippet(f' FROM {cte}')
+                final_query += snippet(f' FROM {cte}')
             else:
-                query += snippet(f' JOIN {cte} ON ')
-                query += sql.SQL(' AND ').join(join)
+                final_query += snippet(f' JOIN {cte} ON ')
+                final_query += sql.SQL(' AND ').join(join)
 
-        return query, parameters
+        return final_query, parameters
 
     def _expression_tables(self, expr: models.ExpressionUnion) -> set[str]:
-        tables = set({})
-        if isinstance(expr, list):
-            for item in expr:
-                tables |= self._expression_tables(item)
-        elif hasattr(expr, 'operands') and expr.operands:
-            tables |= self._expression_tables(expr.operands)
+        tables: set[str] = set()
+        if hasattr(expr, 'operands') and expr.operands:
+            for operand in expr.operands:
+                tables |= self._expression_tables(operand)
         elif isinstance(expr, models.FunctionExpression):
-            tables.add(expr.arguments[0].name)
+            for arg in expr.arguments:
+                tables |= self._expression_tables(arg)
         elif isinstance(expr, models.PropertyAccessExpression):
-            tables.add(expr.object.name)
+            tables |= self._expression_tables(expr.object)
         elif isinstance(expr, models.LiteralExpression):
             pass
         elif isinstance(expr, models.ComparisonExpression):
-            tables |= self._expression_tables(expr.left)
-            tables |= self._expression_tables(expr.right)
+            if expr.left:
+                tables |= self._expression_tables(expr.left)
+            if expr.right:
+                tables |= self._expression_tables(expr.right)
         elif hasattr(expr, 'type') and hasattr(expr, 'name'):
             tables.add(expr.name)
         else:
@@ -168,9 +175,8 @@ class Translator:
     def _has_table(
         self, expr: models.ExpressionUnion, tables: list[str]
     ) -> bool:
-        if isinstance(expr, list):
-            return all(self._has_table(item, tables) for item in expr)
-        elif hasattr(expr, 'type') and hasattr(expr, 'name'):
+        # expr is always a single expression, not a list
+        if hasattr(expr, 'type') and hasattr(expr, 'name'):
             return expr.name in tables
         if hasattr(expr, 'operands') and expr.operands:
             return all(
@@ -238,8 +244,8 @@ class Translator:
                             operand, parameters, cte_tables
                         )
                     )
-                value = snippet(f' {operator} ').join(temp)
-                return sql.Composed([snippet(value.as_string())])
+                joined_operands = snippet(f' {operator} ').join(temp)
+                return joined_operands
 
             if (
                 expression.left
@@ -267,6 +273,10 @@ class Translator:
                 and expression.right.type == models.ExpressionType.LITERAL
             ):
                 value = expression.right.value
+                if not value:
+                    raise ValueError(
+                        f'Literal expression has no value: {expression.right}'
+                    )
             else:
                 raise TypeError(f'Unsupported expression type: {expression}')
 
@@ -298,25 +308,22 @@ class Translator:
                 raise TypeError(f'Unsupported operator: {expression.operator}')
 
             if val:
-                param = self._parameter_name(parameters, val)
+                param = self._parameter_name(parameters, str(val))
                 parameters[param] = val
                 temp.append(sql.Placeholder(param))
             return sql.Composed(temp)
 
-        elif expression.type == models.ExpressionType.OPERATOR:
-            if isinstance(expression.operator, list):
-                return snippet(f' {expression.operator[0]} ')
-            return snippet(f' {expression.operator} ')
-
         elif expression.type == models.ExpressionType.LITERAL:
+            if not expression.value:
+                return sql.SQL('NULL')
             if expression.value.type == 'string':
                 param = self._parameter_name(
-                    parameters, expression.value.value
+                    parameters, str(expression.value.value)
                 )
                 parameters[param] = expression.value.value
                 return sql.Placeholder(param)
             else:
-                return snippet(expression.value.value)
+                return snippet(str(expression.value.value))
 
         elif expression.type == models.ExpressionType.PROPERTY_ACCESS:
             cte = self._cte_name(cte_tables, expression.object.name)
@@ -387,20 +394,24 @@ class Translator:
         if query.where:
             statement += sql.SQL(' WHERE ')
             statement += sql.SQL(' AND ').join(query.where)
-        return sql.Composed(statement)
+        return statement
 
     @staticmethod
     def _needs_recursive_cte(query: models.CypherQuery) -> bool:
         """Check if the query requires a recursive CTE."""
         for quantifier in query.quantifiers:
-            if quantifier and quantifier.to_value > 1:
+            if (
+                quantifier
+                and quantifier.to_value is not None
+                and quantifier.to_value > 1
+            ):
                 return True
         for pattern in query.match_patterns:
             for element in pattern.elements:
                 for rel in element.relationships:
                     if rel.path_length and (
-                        rel.path_length.get('max', 1) > 1
-                        or rel.path_length.get('min', 1) > 1
+                        (rel.path_length.get('max') or 1) > 1
+                        or (rel.path_length.get('min') or 1) > 1
                     ):
                         return True
         return False
@@ -411,8 +422,12 @@ class Translator:
         for pattern in query.match_patterns:
             if pattern.variable == 'SHORTEST_PATH':
                 return True
-        return query.parenthesized_patterns and any(
-            p.variable == 'SHORTEST_PATH' for p in query.parenthesized_patterns
+        return bool(
+            query.parenthesized_patterns
+            and any(
+                p.variable == 'SHORTEST_PATH'
+                for p in query.parenthesized_patterns
+            )
         )
 
     @staticmethod

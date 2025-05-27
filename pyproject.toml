@@ -96,6 +96,7 @@ warn_unreachable = true
 exclude = ["pgraf_cypher/antlr/.*\\.py$"]
 
 [[tool.mypy.overrides]]
+module = "pgraf_cypher.*"
 follow_untyped_imports = true
 disable_error_code = [
   # until mypy undestands self.assertIsNone() python/mypy#4063

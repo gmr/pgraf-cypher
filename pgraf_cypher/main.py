@@ -2,10 +2,10 @@ import contextlib
 import logging
 import typing
 
-import antlr4
+import antlr4  # type: ignore
 import psycopg
 import pydantic
-import sqlparse
+import sqlparse  # type: ignore
 from pgraf import postgres
 
 from pgraf_cypher import antlr, listener, models, translator

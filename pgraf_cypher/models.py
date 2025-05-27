@@ -40,9 +40,7 @@ class Expression(pydantic.BaseModel):
 
     model_config = pydantic.ConfigDict(
         # Ensure all fields are included in serialization
-        use_enum_values=True,
-        # Enable polymorphic serialization
-        discriminator='type',
+        use_enum_values=True
     )
 
 
@@ -100,7 +98,7 @@ class IndexAccessExpression(Expression):
     index: ExpressionUnion
 
 
-class NullComparisonExpression(ComparisonExpression):
+class NullComparisonExpression(Expression):
     type: Literal[ExpressionType.NULL_COMPARISON] = (
         ExpressionType.NULL_COMPARISON
     )
@@ -134,7 +132,7 @@ class RangeAccessExpression(Expression):
     to: ExpressionUnion | None = pydantic.Field(default=None)
 
 
-class TypeComparisonExpression(ComparisonExpression):
+class TypeComparisonExpression(Expression):
     type: Literal[ExpressionType.TYPE_COMPARISON] = (
         ExpressionType.TYPE_COMPARISON
     )

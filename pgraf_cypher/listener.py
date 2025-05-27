@@ -1,6 +1,6 @@
 import logging
 
-import antlr4
+import antlr4  # type: ignore
 
 from pgraf_cypher import models, parsers
 from pgraf_cypher.antlr import Cypher25Parser
