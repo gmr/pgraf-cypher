@@ -89,7 +89,7 @@ def parse_expression(
 ) -> models.Expression:
     """Parse the top-level expression (contains OR operations)."""
     if not ctx:
-        return models.Expression(type=models.ExpressionType.EMPTY)
+        return models.EmptyExpression()
     elif len(ctx.expression11()) > 1:
         return models.OperatorExpression(
             operator='OR',
@@ -399,9 +399,7 @@ def _label_expr1(ctx: Cypher25Parser.LabelExpression1Context) -> list[str]:
 def parse_limit(ctx: Cypher25Parser.LimitContext | None) -> models.Limit:
     """Parse a LIMIT clause."""
     if not ctx or not ctx.expression():
-        return models.Limit(
-            expression=models.Expression(type=models.ExpressionType.EMPTY)
-        )
+        return models.Limit(expression=models.EmptyExpression())
     return models.Limit(expression=parse_expression(ctx.expression()))
 
 
@@ -795,9 +793,7 @@ def parse_single_query(
 def parse_skip(ctx: Cypher25Parser.SkipContext | None) -> models.Skip:
     """Parse a SKIP clause."""
     if not ctx or not ctx.expression():
-        return models.Skip(
-            expression=models.Expression(type=models.ExpressionType.EMPTY)
-        )
+        return models.Skip(expression=models.EmptyExpression())
     return models.Skip(expression=parse_expression(ctx.expression()))
 
 
@@ -839,8 +835,7 @@ def parse_unwind_clause(
     """Parse an UNWIND clause."""
     if not ctx or not ctx.expression() or not ctx.variable():
         return models.UnwindClause(
-            expression=models.Expression(type=models.ExpressionType.EMPTY),
-            variable='',
+            expression=models.EmptyExpression(), variable=''
         )
     return models.UnwindClause(
         expression=parse_expression(ctx.expression()),
@@ -879,9 +874,7 @@ def parse_where_clause(
 ) -> models.WhereClause:
     """Parse a WHERE clause."""
     if not ctx or not ctx.expression():
-        return models.WhereClause(
-            expression=models.Expression(type=models.ExpressionType.EMPTY)
-        )
+        return models.WhereClause(expression=models.EmptyExpression())
     return models.WhereClause(expression=parse_expression(ctx.expression()))
 
 
@@ -1012,8 +1005,7 @@ def parse_property_postfix(
     """Parse a property postfix and return a PropertyAccessExpression."""
     if not ctx:
         return models.PropertyAccessExpression(
-            object=models.Expression(type=models.ExpressionType.EMPTY),
-            property='',
+            object=models.EmptyExpression(), property=''
         )
 
     # Extract property name from the context
@@ -1099,11 +1091,10 @@ def parse_return_item(
     """Parse a return item and return a ReturnItem model."""
     if not ctx:
         return models.ReturnItem(
-            expression=models.Expression(type=models.ExpressionType.EMPTY),
-            alias=None,
+            expression=models.EmptyExpression(), alias=None
         )
 
-    expression = models.Expression(type=models.ExpressionType.EMPTY)
+    expression = models.EmptyExpression()
     alias = None
 
     if ctx.expression():

@@ -1,14 +1,16 @@
 import contextlib
 import logging
-import re
 import typing
 
 import antlr4
 import psycopg
 import pydantic
+import sqlparse
 from pgraf import postgres
 
-from pgraf_cypher import antlr, to_sql
+from pgraf_cypher import antlr, listener, models, translator
+
+LOGGER = logging.getLogger(__name__)
 
 Model = typing.TypeVar('Model', bound=pydantic.BaseModel)
 AsyncCursor = psycopg.AsyncCursor[Model | tuple[typing.Any, ...]]
@@ -21,10 +23,14 @@ class PGrafCypher:
         self,
         url: pydantic.PostgresDsn,
         schema: str = 'pgraf',
+        node_table: str = 'nodes',
+        edges_table: str = 'edges',
         pool_min_size: int = 1,
         pool_max_size: int = 10,
     ) -> None:
-        self._schema = schema
+        self._translator = translator.Translator(
+            schema, node_table, edges_table
+        )
         self._postgres = postgres.Postgres(url, pool_min_size, pool_max_size)
 
     async def initialize(self) -> None:
@@ -43,61 +49,50 @@ class PGrafCypher:
         Execute a Cypher query against the pgraf database.
 
         """
-        sql, parameters = self.translate(query)
-        async with self._postgres.execute(
-            sql, parameters, row_class
-        ) as cursor:
+        cypher = self._convert(query)
+        sql, params = self._translator.translate(cypher)
+        LOGGER.debug('SQL: %s', sql)
+        LOGGER.debug('Params: %s', params)
+        async with self._postgres.execute(sql, params, row_class) as cursor:
             yield cursor
 
-    @staticmethod
-    def translate(query: str) -> tuple[str, dict[str, typing.Any]]:
+    def translate(
+        self, query: str, pretty: bool = False
+    ) -> tuple[str, dict[str, typing.Any]]:
         """
         Parse a Cypher query and translate it to a PostgreSQL query.
 
         Args:
             query: The Cypher query string
+            pretty: Pretty print the resulting query
 
         Returns:
-            A SQL Composable object representing the equivalent PostgreSQL
-            query
+            The converted PostgreSQL query string
+
         """
-        # Preprocess query for special patterns that ANTLR doesn't handle well
-        preprocessed_query = query.strip()
-        if not preprocessed_query:
+        cypher = self._convert(query)
+        sql, params = self._translator.translate(cypher)
+        if pretty:
+            return sqlparse.format(
+                sql.as_string(), 'UTF-8', reindent=True, keyword_case='upper'
+            ), params
+        return sql.as_string(), params
+
+    @staticmethod
+    def _convert(query: str) -> models.CypherQuery:
+        """
+        Parse a Cypher query and translate it to a PostgreSQL query.
+        """
+        cypher = query.strip()
+        if not cypher:
             raise ValueError('Empty query')
-
-        # Handle raw SHORTEST_PATH queries by wrapping them in MATCH
-        if preprocessed_query.startswith('SHORTEST_PATH('):
-            preprocessed_query = f'MATCH {preprocessed_query}'
-
         parser = antlr.Cypher25Parser(
             antlr4.CommonTokenStream(
-                antlr.Cypher25Lexer(antlr4.InputStream(preprocessed_query))
+                antlr.Cypher25Lexer(antlr4.InputStream(cypher))
             )
         )
         tree = parser.statements()
         walker = antlr4.ParseTreeWalker()
-        converter = to_sql.CypherToSQL()
+        converter = listener.CypherListener()
         walker.walk(converter, tree)
-        query, parameters = converter.translate()
-        return re.sub(r'\s+', ' ', query).strip(), parameters
-
-
-if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
-    query1 = """\
-    MATCH (u1:User {email: "foo@aweber.com"})-[:author]->(m1:SlackMessage)
-    MATCH (u2:User {email: "bar@aweber.com"})-[:author]->(m2:SlackMessage)
-    WHERE m1.thread_ts = m2.thread_ts
-      AND m1 <> m2
-      AND NOT EXISTS {
-        MATCH (m1)-[:channel]->(:SlackChannel {name: "@privatedm"})
-      }
-      AND NOT EXISTS {
-        MATCH (m2)-[:channel]->(:SlackChannel {name: "@privatedm"})
-      }
-    RETURN m1, m2
-    ORDER BY m1.ts DESC
-    LIMIT 100        
-    """
-    print(PGrafCypher.translate(query1))
+        return converter.query

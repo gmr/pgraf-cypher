@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import enum
 import typing
-from typing import Literal
+from typing import Annotated, Literal
 
 import pydantic
 
@@ -20,6 +22,8 @@ class ExpressionType(str, enum.Enum):
     LOGICAL = 'logical'
     RELATIONSHIP = 'relationship'
     FUNCTION = 'function'
+    COUNT_FUNCTION = 'count_function'
+    AGGREGATE_FUNCTION = 'aggregate_function'
     INDEX_ACCESS = 'index_access'
     PROPERTY_ACCESS = 'property_access'
     RANGE_ACCESS = 'range_access'
@@ -42,50 +46,58 @@ class Expression(pydantic.BaseModel):
     )
 
 
+class EmptyExpression(Expression):
+    type: Literal[ExpressionType.EMPTY] = ExpressionType.EMPTY
+
+
 class ExistsExpression(Expression):
     type: Literal[ExpressionType.EXISTS] = ExpressionType.EXISTS
-    pattern: 'Pattern | None' = None
-    match_clause: 'MatchClause | None' = None
+    pattern: Pattern | None = None
+    match_clause: MatchClause | None = None
 
 
 class CountExpression(Expression):
-    type: Literal[ExpressionType.FUNCTION] = ExpressionType.FUNCTION
+    type: Literal[ExpressionType.COUNT_FUNCTION] = (
+        ExpressionType.COUNT_FUNCTION
+    )
     name: str = 'COUNT'
     distinct: bool = False
-    argument: Expression | None = None
+    argument: ExpressionUnion | None = None
 
 
 class AggregateExpression(Expression):
-    type: Literal[ExpressionType.FUNCTION] = ExpressionType.FUNCTION
+    type: Literal[ExpressionType.AGGREGATE_FUNCTION] = (
+        ExpressionType.AGGREGATE_FUNCTION
+    )
     name: str  # SUM, AVG, MIN, MAX, COLLECT, etc.
     distinct: bool = False
-    argument: Expression
+    argument: ExpressionUnion
 
 
 class ArithmeticExpression(Expression):
     type: Literal[ExpressionType.ARITHMETIC] = ExpressionType.ARITHMETIC
     operators: list[str]
-    operands: list['ExpressionUnion'] = pydantic.Field(default_factory=list)
+    operands: list[ExpressionUnion] = pydantic.Field(default_factory=list)
 
 
 class ComparisonExpression(Expression):
     type: Literal[ExpressionType.COMPARISON] = ExpressionType.COMPARISON
     operator: str | list[str]
-    operands: list['ExpressionUnion'] = pydantic.Field(default_factory=list)
-    left: 'ExpressionUnion | None' = None
-    right: 'ExpressionUnion | None' = None
+    operands: list[ExpressionUnion] = pydantic.Field(default_factory=list)
+    left: ExpressionUnion | None = None
+    right: ExpressionUnion | None = None
 
 
 class FunctionExpression(Expression):
     type: Literal[ExpressionType.FUNCTION] = ExpressionType.FUNCTION
     name: str
-    arguments: list['ExpressionUnion'] = pydantic.Field(default_factory=list)
+    arguments: list[ExpressionUnion] = pydantic.Field(default_factory=list)
 
 
 class IndexAccessExpression(Expression):
     type: Literal[ExpressionType.INDEX_ACCESS] = ExpressionType.INDEX_ACCESS
-    object: 'ExpressionUnion'
-    index: 'ExpressionUnion'
+    object: ExpressionUnion
+    index: ExpressionUnion
 
 
 class NullComparisonExpression(ComparisonExpression):
@@ -93,13 +105,13 @@ class NullComparisonExpression(ComparisonExpression):
         ExpressionType.NULL_COMPARISON
     )
     operator: str
-    operand: 'ExpressionUnion'
+    operand: ExpressionUnion
 
 
 class OperatorExpression(Expression):
     type: Literal[ExpressionType.OPERATOR] = ExpressionType.OPERATOR
     operator: str
-    operands: list['ExpressionUnion'] = pydantic.Field(default_factory=list)
+    operands: list[ExpressionUnion] = pydantic.Field(default_factory=list)
 
 
 class ParameterExpression(Expression):
@@ -111,17 +123,15 @@ class PropertyAccessExpression(Expression):
     type: Literal[ExpressionType.PROPERTY_ACCESS] = (
         ExpressionType.PROPERTY_ACCESS
     )
-    object: 'ExpressionUnion'
+    object: ExpressionUnion
     property: str
 
 
 class RangeAccessExpression(Expression):
     type: Literal[ExpressionType.RANGE_ACCESS] = ExpressionType.RANGE_ACCESS
-    object: 'ExpressionUnion'
-    from_: 'ExpressionUnion | None' = pydantic.Field(
-        alias='from', default=None
-    )
-    to: 'ExpressionUnion | None' = pydantic.Field(default=None)
+    object: ExpressionUnion
+    from_: ExpressionUnion | None = pydantic.Field(alias='from', default=None)
+    to: ExpressionUnion | None = pydantic.Field(default=None)
 
 
 class TypeComparisonExpression(ComparisonExpression):
@@ -129,7 +139,7 @@ class TypeComparisonExpression(ComparisonExpression):
         ExpressionType.TYPE_COMPARISON
     )
     operator: str
-    operand: 'ExpressionUnion'
+    operand: ExpressionUnion
     expected_type: str
 
 
@@ -138,7 +148,7 @@ class UnaryOperatorExpression(Expression):
         ExpressionType.UNARY_OPERATOR
     )
     operator: str
-    operand: 'ExpressionUnion'
+    operand: ExpressionUnion
 
 
 class VariableExpression(Expression):
@@ -148,12 +158,12 @@ class VariableExpression(Expression):
 
 class LiteralExpression(Expression):
     type: Literal[ExpressionType.LITERAL] = ExpressionType.LITERAL
-    value: typing.Optional['LiteralValue'] = None
+    value: LiteralValue | None = None
 
 
 class ListAccess(pydantic.BaseModel):
-    expression: Expression
-    index: Expression
+    expression: ExpressionUnion
+    index: ExpressionUnion
 
 
 class LiteralValue(pydantic.BaseModel):
@@ -174,7 +184,7 @@ class NodePattern(pydantic.BaseModel):
     variable: str | None = None
     labels: list[str] = pydantic.Field(default_factory=list)
     properties: dict[str, object] = pydantic.Field(default_factory=dict)
-    where_expression: Expression | None = None
+    where_expression: ExpressionUnion | None = None
 
 
 class PathLength(pydantic.BaseModel):
@@ -184,19 +194,19 @@ class PathLength(pydantic.BaseModel):
 
 class Pattern(pydantic.BaseModel):
     variable: str | None = None
-    elements: list['PatternElement']
+    elements: list[PatternElement]
     selector: str | None = None
 
 
 class PatternElement(pydantic.BaseModel):
     nodes: list[NodePattern]
-    relationships: list['RelationshipPattern'] = pydantic.Field(
+    relationships: list[RelationshipPattern] = pydantic.Field(
         default_factory=list
     )
 
 
 class PropertyAccess(pydantic.BaseModel):
-    expression: Expression
+    expression: ExpressionUnion
     property_name: str
 
 
@@ -215,8 +225,8 @@ class RelationshipPattern(pydantic.BaseModel):
 
 
 class RegularQuery(pydantic.BaseModel):
-    union: typing.Optional['Union'] = None
-    when: typing.Optional['When'] = None
+    union: Union | None = None
+    when: When | None = None
 
 
 class Statement(pydantic.BaseModel):
@@ -225,9 +235,9 @@ class Statement(pydantic.BaseModel):
 
 
 class SingleQuery(pydantic.BaseModel):
-    clauses: list['Clause'] = pydantic.Field(default_factory=list)
-    use_clause: typing.Optional['UseClause'] = None
-    regular_query: typing.Optional['RegularQuery'] = None
+    clauses: list[Clause] = pydantic.Field(default_factory=list)
+    use_clause: UseClause | None = None
+    regular_query: RegularQuery | None = None
 
 
 class Union(pydantic.BaseModel):
@@ -236,7 +246,7 @@ class Union(pydantic.BaseModel):
 
 
 class WhenBranch(pydantic.BaseModel):
-    condition: Expression
+    condition: ExpressionUnion
     query: SingleQuery
 
 
@@ -259,7 +269,7 @@ class UseClause(pydantic.BaseModel):
 
 
 class OrderItem(pydantic.BaseModel):
-    expression: Expression
+    expression: ExpressionUnion
     direction: typing.Literal['ASC', 'DESC', None] = None
 
 
@@ -268,15 +278,15 @@ class OrderBy(pydantic.BaseModel):
 
 
 class Skip(pydantic.BaseModel):
-    expression: Expression
+    expression: ExpressionUnion
 
 
 class Limit(pydantic.BaseModel):
-    expression: Expression
+    expression: ExpressionUnion
 
 
 class ReturnItem(pydantic.BaseModel):
-    expression: Expression
+    expression: ExpressionUnion
     alias: str | None = None
 
 
@@ -290,12 +300,12 @@ class ReturnBody(pydantic.BaseModel):
 
 class WithClause(pydantic.BaseModel):
     return_body: ReturnBody
-    where_expression: Expression | None = None
+    where_expression: ExpressionUnion | None = None
 
 
 class MergeAction(pydantic.BaseModel):
     action_type: typing.Literal['MATCH', 'CREATE']
-    set_clause: typing.Optional['SetClause'] = None
+    set_clause: SetClause | None = None
 
 
 class MergeClause(pydantic.BaseModel):
@@ -304,15 +314,15 @@ class MergeClause(pydantic.BaseModel):
 
 
 class FilterClause(pydantic.BaseModel):
-    expression: Expression
+    expression: ExpressionUnion
 
 
 class SetItem(pydantic.BaseModel):
     type: typing.Literal[
         'SET_PROP', 'SET_DYNAMIC_PROP', 'SET_PROPS', 'ADD_PROP', 'SET_LABELS'
     ]
-    target: str | Expression
-    value: Expression | None = None
+    target: str | ExpressionUnion
+    value: ExpressionUnion | None = None
 
 
 class SetClause(pydantic.BaseModel):
@@ -342,7 +352,7 @@ class MatchClause(pydantic.BaseModel):
     match_mode: MatchMode | None = None
     patterns: list[Pattern] = pydantic.Field(default_factory=list)
     hints: list[Hint] = pydantic.Field(default_factory=list)
-    where_expression: Expression | None = None
+    where_expression: ExpressionUnion | None = None
 
 
 class ReturnClause(pydantic.BaseModel):
@@ -350,16 +360,16 @@ class ReturnClause(pydantic.BaseModel):
 
 
 class WhereClause(pydantic.BaseModel):
-    expression: Expression
+    expression: ExpressionUnion
 
 
 class UnwindClause(pydantic.BaseModel):
-    expression: Expression
+    expression: ExpressionUnion
     variable: str
 
 
 class ProcedureArgument(pydantic.BaseModel):
-    expression: Expression
+    expression: ExpressionUnion
 
 
 class ProcedureResultItem(pydantic.BaseModel):
@@ -375,12 +385,13 @@ class CallClause(pydantic.BaseModel):
         default_factory=list
     )
     yield_all: bool = False
-    where_expression: Expression | None = None
+    where_expression: ExpressionUnion | None = None
 
 
-# Use a simple union without discriminator for now
-ExpressionUnion = (
-    ExistsExpression
+# Use proper discriminated union for polymorphic serialization
+ExpressionUnion = Annotated[
+    EmptyExpression
+    | ExistsExpression
     | CountExpression
     | AggregateExpression
     | ArithmeticExpression
@@ -395,13 +406,14 @@ ExpressionUnion = (
     | TypeComparisonExpression
     | UnaryOperatorExpression
     | VariableExpression
-    | LiteralExpression
-    | Expression  # Base Expression as fallback
-)
+    | LiteralExpression,
+    pydantic.Field(discriminator='type'),
+]
 
 RegularQuery.model_rebuild()
 SingleQuery.model_rebuild()
 Expression.model_rebuild()
+EmptyExpression.model_rebuild()
 ExistsExpression.model_rebuild()
 CountExpression.model_rebuild()
 AggregateExpression.model_rebuild()
@@ -424,3 +436,19 @@ MergeAction.model_rebuild()
 SetClause.model_rebuild()
 MatchClause.model_rebuild()
 CallClause.model_rebuild()
+
+
+class CypherQuery(pydantic.BaseModel):
+    match_patterns: list[Pattern] = pydantic.Field(default_factory=list)
+    optional_matches: list[MatchClause] = pydantic.Field(default_factory=list)
+    parenthesized_paths: list[str] = pydantic.Field(default_factory=list)
+    parenthesized_patterns: list[Pattern] = pydantic.Field(
+        default_factory=list
+    )
+    quantifiers: list[Quantifier] = pydantic.Field(default_factory=list)
+    query_type: str | None = None
+    return_clause: ReturnClause | None = None
+    union: Union | None = None
+    where: list[ExpressionUnion] = pydantic.Field(default_factory=list)
+    with_aliases: set[str] = pydantic.Field(default_factory=set)
+    with_clauses: list[WithClause] = pydantic.Field(default_factory=list)
