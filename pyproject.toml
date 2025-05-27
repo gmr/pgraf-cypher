@@ -26,6 +26,7 @@ classifiers = [
 dependencies = [
   "antlr4-python3-runtime>=4.13.2,<5",
   "asyncstdlib>=3.13.1,<4",
+  "pgraf>=1.0.0a2,<2",
   "psycopg>=3.2.4,<4",
   "pydantic>=2.11.3,<3"
 ]
